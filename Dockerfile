@@ -26,8 +26,11 @@ COPY go.mod go.sum ./
 # 下载依赖（允许部分失败，因为某些crypto依赖不需要）
 RUN go mod download || echo "Some dependencies failed to download, continuing..."
 
-# 复制源代码
+# 复制源代码（先复制源代码，确保变更能触发重新构建）
 COPY . .
+
+# 验证关键文件是否存在（用于调试）
+RUN ls -la main_stock.go config/stock_config.go notifier/webhook.go web/config.html || echo "Warning: Some files may be missing"
 
 # 构建应用（只构建股票分析系统，使用-mod=mod允许修改模块）
 RUN go build -mod=mod -ldflags="-s -w" -o stock_analyzer main_stock.go

@@ -57,6 +57,7 @@ jobs:
           cache-from: ${{ github.event.inputs.skip_cache == 'true' && '' || 'type=gha' }}
           cache-to: ${{ github.event.inputs.skip_cache == 'true' && '' || 'type=gha,mode=max' }}
           platforms: linux/amd64
+          no-cache: ${{ github.event.inputs.skip_cache == 'true' }}
 
       - name: 构建摘要
         run: |

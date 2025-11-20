@@ -9,6 +9,7 @@ import (
 	"nofx/notifier"
 	"nofx/stock"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"sync"
@@ -107,10 +108,20 @@ func main() {
 	fmt.Println()
 
 	// 创建分析器管理器
-	analyzerManager := &AnalyzerManager{
-		analyzers: make(map[string]*stock.StockAnalyzer),
-		stopChans: make(map[string]chan struct{}),
+	// 使用配置文件中的分析历史记录数量限制（最小3，最大100，默认20）
+	maxHistorySize := cfg.AnalysisHistoryLimit
+	if maxHistorySize < 3 {
+		maxHistorySize = 3
+	} else if maxHistorySize > 100 {
+		maxHistorySize = 100
 	}
+	analyzerManager := &AnalyzerManager{
+		analyzers:       make(map[string]*stock.StockAnalyzer),
+		stopChans:       make(map[string]chan struct{}),
+		analysisHistory: make(map[string][]*stock.AnalysisResult),
+		maxHistorySize:  maxHistorySize, // 从配置文件读取，每个股票最多保存的分析记录数
+	}
+	log.Printf("✓ 分析历史记录配置: 每个股票最多保存 %d 条记录", maxHistorySize)
 
 	// 为每只启用的股票创建分析器
 	for _, stockItem := range enabledStocks {
@@ -120,6 +131,11 @@ func main() {
 			ScanInterval:       stockItem.GetScanInterval(),
 			EnableNotification: cfg.Notification.Enabled,
 			MinConfidence:      stockItem.MinConfidence,
+			
+			// 新增：持仓信息（如果填写了）
+			PositionQuantity: stockItem.PositionQuantity,
+			BuyPrice:         stockItem.BuyPrice,
+			BuyDate:          parseBuyDate(stockItem.BuyDate),
 		}
 
 		analyzer := stock.NewStockAnalyzer(tdxClient, mcpClient, notif, analysisConfig, tradingTimeChecker)
@@ -127,13 +143,82 @@ func main() {
 	}
 
 	// 创建并启动API服务器
-	apiServer := api.NewStockAPIServer(analyzerManager, cfg.APIServerPort)
+	apiServer := api.NewStockAPIServer(analyzerManager, cfg.APIServerPort, cfg.APIToken)
+	
+	// 设置重启函数（优雅重启）
+	apiServer.SetRestartFunc(func() {
+		log.Printf("🔄 收到重启指令，开始优雅关闭...")
+		analyzerManager.StopAll()
+		log.Printf("✅ 所有分析器已停止")
+		
+		// 尝试通过管理脚本自动重启
+		// 获取当前工作目录或可执行文件所在目录
+		workDir := "."
+		if exePath, err := os.Executable(); err == nil {
+			if absPath, err := os.Readlink(exePath); err == nil {
+				exePath = absPath
+			}
+			if exeDir := fmt.Sprintf("%s/../", exePath); exeDir != "" {
+				workDir = exeDir
+			}
+		}
+		
+		// 尝试多个可能的脚本路径（相对路径优先）
+		scriptPaths := []string{
+			"./manage_backend.sh",
+			fmt.Sprintf("%s/manage_backend.sh", workDir),
+		}
+		
+		// 如果当前目录就是脚本目录，添加绝对路径
+		if cwd, err := os.Getwd(); err == nil {
+			scriptPaths = append(scriptPaths, fmt.Sprintf("%s/manage_backend.sh", cwd))
+		}
+		
+		scriptFound := false
+		for _, scriptPath := range scriptPaths {
+			if _, err := os.Stat(scriptPath); err == nil {
+				log.Printf("📜 检测到管理脚本: %s，尝试自动重启...", scriptPath)
+				// 在后台执行重启脚本（分离进程，避免阻塞）
+				cmd := exec.Command("bash", scriptPath, "restart")
+				cmd.Dir = workDir
+				cmd.Env = os.Environ()
+				// 分离标准输入输出，让脚本在后台执行
+				cmd.Stdin = nil
+				cmd.Stdout = nil
+				cmd.Stderr = nil
+				
+				if err := cmd.Start(); err == nil {
+					log.Printf("✅ 已触发重启脚本，服务将在后台重启")
+					// 不等待命令完成，让脚本独立运行
+					_ = cmd.Process.Release()
+					scriptFound = true
+					// 等待一小段时间让脚本开始执行
+					time.Sleep(2 * time.Second)
+					break
+				} else {
+					log.Printf("⚠️  执行重启脚本失败: %v", err)
+				}
+			}
+		}
+		
+		if !scriptFound {
+			log.Printf("⚠️  未找到管理脚本，程序将退出")
+			log.Printf("💡 提示：请手动执行 './manage_backend.sh restart' 或使用 systemd/supervisor 管理，服务将自动重启")
+		}
+		
+		log.Printf("👋 程序退出")
+		os.Exit(0) // 退出程序，由脚本或外部进程管理器重启
+	})
+	
 	go func() {
 		if err := apiServer.Start(); err != nil {
 			log.Printf("❌ API服务器错误: %v", err)
 		}
 	}()
 	log.Printf("✓ API服务器已启动: http://localhost:%d", cfg.APIServerPort)
+	if cfg.APIToken != "" {
+		log.Printf("✓ API Token已配置（可用于重启等功能）")
+	}
 	fmt.Println()
 
 	// 设置优雅退出
@@ -205,11 +290,26 @@ func createNotifier(notifConfig *config.NotificationConfig) notifier.Notifier {
 	return notifier.NewMultiNotifier(notifiers...)
 }
 
+// parseBuyDate 解析购买日期字符串为time.Time
+func parseBuyDate(dateStr string) time.Time {
+	if dateStr == "" {
+		return time.Time{} // 零值
+	}
+	t, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		log.Printf("⚠️  解析购买日期失败: %v，将忽略该字段", err)
+		return time.Time{}
+	}
+	return t
+}
+
 // AnalyzerManager 分析器管理器
 type AnalyzerManager struct {
-	analyzers map[string]*stock.StockAnalyzer
-	stopChans map[string]chan struct{}
-	mutex     sync.RWMutex
+	analyzers     map[string]*stock.StockAnalyzer
+	stopChans     map[string]chan struct{}
+	analysisHistory map[string][]*stock.AnalysisResult // 存储最近的分析结果（每个股票代码对应一个结果列表）
+	maxHistorySize int                                  // 每个股票最多保存的分析记录数
+	mutex         sync.RWMutex
 }
 
 // AddAnalyzer 添加分析器
@@ -227,6 +327,111 @@ func (m *AnalyzerManager) GetAnalyzer(code string) interface{} {
 	return m.analyzers[code]
 }
 
+// TriggerAnalysis 手动触发分析
+func (m *AnalyzerManager) TriggerAnalysis(code string) (interface{}, error) {
+	m.mutex.RLock()
+	analyzer, exists := m.analyzers[code]
+	m.mutex.RUnlock()
+	
+	if !exists {
+		return nil, fmt.Errorf("股票代码 %s 的分析器不存在", code)
+	}
+	
+	result, err := analyzer.Analyze()
+	if err != nil {
+		return nil, err
+	}
+	
+	// 保存分析结果到历史记录
+	if result != nil {
+		m.saveAnalysisResult(code, result)
+	}
+	
+	return result, nil
+}
+
+// saveAnalysisResult 保存分析结果到历史记录
+func (m *AnalyzerManager) saveAnalysisResult(code string, result *stock.AnalysisResult) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.analysisHistory == nil {
+		m.analysisHistory = make(map[string][]*stock.AnalysisResult)
+	}
+
+	history := m.analysisHistory[code]
+	if history == nil {
+		history = []*stock.AnalysisResult{}
+	}
+
+	// 添加到列表开头（最新的在前面）
+	history = append([]*stock.AnalysisResult{result}, history...)
+
+	// 限制历史记录数量
+	if len(history) > m.maxHistorySize {
+		history = history[:m.maxHistorySize]
+	}
+
+	m.analysisHistory[code] = history
+}
+
+// GetAnalysisHistory 获取分析历史记录
+func (m *AnalyzerManager) GetAnalysisHistory(code string, limit int) interface{} {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if limit <= 0 {
+		limit = 20 // 默认20条
+	}
+
+	history := m.analysisHistory[code]
+	if history == nil {
+		return []*stock.AnalysisResult{}
+	}
+
+	if len(history) > limit {
+		return history[:limit]
+	}
+
+	return history
+}
+
+// GetAllRecentAnalysis 获取所有股票的最远分析记录（最近N条）
+func (m *AnalyzerManager) GetAllRecentAnalysis(limit int) interface{} {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if limit <= 0 {
+		limit = 10 // 默认10条
+	}
+
+	var allResults []*stock.AnalysisResult
+
+	// 收集所有股票的最新分析结果
+	for _, history := range m.analysisHistory {
+		if len(history) > 0 {
+			// 只取每个股票的最新一条
+			allResults = append(allResults, history[0])
+		}
+	}
+
+	// 按时间排序（最新的在前）
+	for i := 0; i < len(allResults)-1; i++ {
+		for j := i + 1; j < len(allResults); j++ {
+			if allResults[i].Timestamp.Before(allResults[j].Timestamp) {
+				allResults[i], allResults[j] = allResults[j], allResults[i]
+			}
+		}
+	}
+
+	// 限制返回数量
+	if len(allResults) > limit {
+		return allResults[:limit]
+	}
+
+	return allResults
+}
+
 // StartAll 启动所有分析器
 func (m *AnalyzerManager) StartAll() {
 	m.mutex.RLock()
@@ -234,7 +439,32 @@ func (m *AnalyzerManager) StartAll() {
 
 	for code, analyzer := range m.analyzers {
 		stopChan := m.stopChans[code]
-		go analyzer.StartMonitoring(stopChan)
+		go func(code string, analyzer *stock.StockAnalyzer, stopChan chan struct{}) {
+			// 包装监控函数，在分析完成后保存结果
+			ticker := time.NewTicker(analyzer.AnalysisConfig.ScanInterval)
+			defer ticker.Stop()
+
+			log.Printf("🚀 开始监控股票 %s，扫描间隔: %v",
+				code,
+				analyzer.AnalysisConfig.ScanInterval)
+
+			// 立即执行一次分析
+			if result, err := analyzer.Analyze(); err == nil && result != nil {
+				m.saveAnalysisResult(code, result)
+			}
+
+			for {
+				select {
+				case <-ticker.C:
+					if result, err := analyzer.Analyze(); err == nil && result != nil {
+						m.saveAnalysisResult(code, result)
+					}
+				case <-stopChan:
+					log.Printf("⏹️  停止监控股票 %s", code)
+					return
+				}
+			}
+		}(code, analyzer, stopChan)
 	}
 }
 

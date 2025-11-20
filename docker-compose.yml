@@ -6,9 +6,8 @@ services:
       dockerfile: Dockerfile
     container_name: stock-analyzer
     restart: unless-stopped
-    network_mode: host
-    # ports:
-    #   - "8080:9090"  # host模式不需要端口映射
+    ports:
+      - "53290:9090"  # 主机端口:容器端口
     volumes:
       # 挂载配置文件（必须，可读写以支持Web配置保存）
       - ./config_stock.json:/app/config_stock.json
@@ -21,14 +20,17 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - LOG_LEVEL=info
-    # networks:
-    #   - stock-network  # host模式不需要自定义网络
-    # healthcheck:
-    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/stocks"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 60s
+      # API Token用于前端重启后端等操作（可选，如果配置文件中已设置则不需要）
+      # 建议在生产环境中设置强密码，可通过环境变量覆盖配置文件中的Token
+      - API_TOKEN=${API_TOKEN:-}
+    networks:
+      - stock-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/api/stocks"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -40,18 +42,17 @@ services:
     image: nginx:1.25-alpine
     container_name: stock-web
     restart: unless-stopped
-    network_mode: host
-    # ports:
-    #   - "8090:80"  # host模式不需要端口映射，nginx配置中监听8090
+    ports:
+      - "53280:80"  # 主机端口:容器端口（Nginx默认80）
     volumes:
-      # 挂载Web文件（去掉ro让nginx可以读取）
+      # 挂载Web文件
       - ./web:/usr/share/nginx/html
       # 挂载Nginx配置
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
-    # networks:
-    #   - stock-network  # host模式不需要自定义网络
-    # depends_on:
-    #   - stock-analyzer  # host模式下不需要depends_on
+    networks:
+      - stock-network
+    depends_on:
+      - stock-analyzer
     logging:
       driver: "json-file"
       options:
@@ -64,8 +65,4 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
-
-volumes:
-  logs:
-    driver: local
 

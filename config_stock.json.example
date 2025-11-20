@@ -50,6 +50,8 @@
     "timezone": "Asia/Shanghai"
   },
   "api_server_port": 9090,
-  "log_dir": "stock_analysis_logs"
+  "log_dir": "stock_analysis_logs",
+  "api_token": "1122334455667788",
+  "analysis_history_limit": 20
 }
 

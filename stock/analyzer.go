@@ -26,6 +26,16 @@ type AnalysisConfig struct {
 	ScanInterval       time.Duration // 扫描间隔
 	EnableNotification bool          // 是否启用通知
 	MinConfidence      int           // 最小信心度阈值（低于此值不发送通知）
+
+	// 新增：持仓信息（可选）
+	PositionQuantity int       // 持仓数量（股），0表示监控模式
+	BuyPrice         float64   // 购买价格（元/股），0表示监控模式
+	BuyDate          time.Time // 购买日期（可选）
+}
+
+// IsPositionMode 判断是否为持仓模式
+func (c *AnalysisConfig) IsPositionMode() bool {
+	return c.PositionQuantity > 0 && c.BuyPrice > 0
 }
 
 // NewStockAnalyzer 创建股票分析器
@@ -52,6 +62,11 @@ type AnalysisResult struct {
 	RiskReward    string                 `json:"risk_reward,omitempty"`
 	TechnicalData map[string]interface{} `json:"technical_data"`
 	Timestamp     time.Time              `json:"timestamp"`
+
+	// 新增：持仓止盈止损价格（持仓模式下有效）
+	PositionProfitTarget float64       `json:"position_profit_target,omitempty"` // 持仓止盈价
+	PositionStopLoss     float64       `json:"position_stop_loss,omitempty"`     // 持仓止损价
+	PositionInfo         *PositionInfo `json:"position_info,omitempty"`          // 持仓信息（可选）
 }
 
 // Analyze 执行单次分析
@@ -111,9 +126,10 @@ func (a *StockAnalyzer) Analyze() (*AnalysisResult, error) {
 	}
 
 	// 9. 发送通知（如果启用且信心度达到阈值）
+	// 通知条件：启用通知 + 信心度≥阈值 + 信号是BUY/SELL/HOLD中的任意一个
 	if a.AnalysisConfig.EnableNotification &&
-		result.Confidence >= a.AnalysisConfig.MinConfidence &&
-		(result.Signal == "BUY" || result.Signal == "SELL") {
+		result.Confidence >= a.AnalysisConfig.MinConfidence {
+		// 所有信号（BUY/SELL/HOLD）都发送通知，只要信心度达到阈值
 		a.sendNotification(result)
 	}
 
@@ -136,6 +152,17 @@ func (a *StockAnalyzer) calculateTechnicalIndicators(quote *QuoteData, dayKline 
 	if quote.K.Last > 0 {
 		changePercent := (float64(quote.K.Close-quote.K.Last) / float64(quote.K.Last)) * 100
 		data["change_percent"] = fmt.Sprintf("%.2f%%", changePercent)
+	}
+
+	// 涨跌率（从quote.Rate获取，如果有）
+	if quote.Rate != 0 {
+		data["rate"] = fmt.Sprintf("%.2f%%", quote.Rate)
+	} else if quote.K.Last > 0 {
+		// 如果Rate未提供，计算涨跌率
+		rate := (float64(quote.K.Close-quote.K.Last) / float64(quote.K.Last)) * 100
+		data["rate"] = fmt.Sprintf("%.2f%%", rate)
+	} else {
+		data["rate"] = "0.00%"
 	}
 
 	// 成交量和成交额
@@ -313,6 +340,8 @@ func (a *StockAnalyzer) buildAnalysisPrompt(quote *QuoteData, dayKline *KlineDat
 - **最低价**: %.2f元
 - **昨收价**: %.2f元
 - **涨跌幅**: %s
+- **涨跌率**: %s
+- **现量**: %d手（当前成交的成交量）
 - **成交量**: %d股
 - **成交额**: %.2f万元
 - **外盘占比**: %s（外盘越高说明买盘越强）
@@ -330,6 +359,8 @@ func (a *StockAnalyzer) buildAnalysisPrompt(quote *QuoteData, dayKline *KlineDat
 		technical["low_price"].(float64),
 		technical["prev_close"].(float64),
 		technical["change_percent"].(string),
+		technical["rate"].(string),
+		quote.Intuition,
 		technical["volume"].(int64),
 		AmountToYuan(quote.Amount)/10000,
 		technical["outer_ratio"].(string),
@@ -366,6 +397,37 @@ func (a *StockAnalyzer) buildAnalysisPrompt(quote *QuoteData, dayKline *KlineDat
 		technical["volatility_20d"].(string),
 	)
 
+	// 检查是否为持仓模式，如果是则添加持仓信息
+	if a.AnalysisConfig.IsPositionMode() {
+		currentPrice := technical["current_price"].(float64)
+		positionInfo := CalculatePositionInfo(
+			a.AnalysisConfig.StockCode,
+			a.AnalysisConfig.StockName,
+			a.AnalysisConfig.PositionQuantity,
+			a.AnalysisConfig.BuyPrice,
+			currentPrice,
+			a.AnalysisConfig.BuyDate,
+		)
+
+		prompt += fmt.Sprintf(`
+## 持仓信息
+- **持仓数量**: %d股
+- **购买价格**: %.2f元/股
+- **持仓成本**: %.2f元
+- **当前价格**: %.2f元/股
+- **市值**: %.2f元
+- **浮动盈亏**: %s
+
+`,
+			positionInfo.Quantity,
+			positionInfo.BuyPrice,
+			positionInfo.TotalCost,
+			positionInfo.CurrentPrice,
+			positionInfo.MarketValue,
+			positionInfo.FormatProfitLoss(),
+		)
+	}
+
 	// 添加K线概况
 	prompt += fmt.Sprintf(`## K线数据概况
 - **日K线**: 最近%d个交易日数据
@@ -375,31 +437,177 @@ func (a *StockAnalyzer) buildAnalysisPrompt(quote *QuoteData, dayKline *KlineDat
 		len(min30Kline.List),
 	)
 
-	// 添加近期价格趋势（从最近5天开始，从新到旧显示）
+	// 添加近期价格趋势（从最近5天开始，从新到旧显示，包含OHLC完整数据）
 	if len(dayKline.List) >= 5 {
-		prompt += "\n**近5日收盘价趋势**:\n"
+		prompt += "\n**近5日K线数据（OHLC）**:\n"
 		listLen := len(dayKline.List)
 		// 从最新的一天开始倒序显示
 		for i := listLen - 1; i >= listLen-5 && i >= 0; i-- {
 			kline := dayKline.List[i]
-			prompt += fmt.Sprintf("- %s: %.2f元 (成交量: %d手)\n",
+			prompt += fmt.Sprintf("- %s: 开%.2f 高%.2f 低%.2f 收%.2f元 | 成交量: %d手 | 成交额: %.2f万元\n",
 				kline.Time.Format("01-02"),
+				PriceToYuan(kline.Open),
+				PriceToYuan(kline.High),
+				PriceToYuan(kline.Low),
+				PriceToYuan(kline.Close),
+				kline.Volume,
+				AmountToYuan(kline.Amount)/10000)
+		}
+	}
+
+	// 添加30分钟K线数据（最近10条，用于短期趋势分析）
+	if len(min30Kline.List) > 0 {
+		prompt += "\n**近期30分钟K线走势（最近10条）**:\n"
+		listLen := len(min30Kline.List)
+		startIdx := listLen - 10
+		if startIdx < 0 {
+			startIdx = 0
+		}
+		for i := startIdx; i < listLen; i++ {
+			kline := min30Kline.List[i]
+			prompt += fmt.Sprintf("- %s: 开%.2f 高%.2f 低%.2f 收%.2f元 | 成交量: %d手\n",
+				kline.Time.Format("01-02 15:04"),
+				PriceToYuan(kline.Open),
+				PriceToYuan(kline.High),
+				PriceToYuan(kline.Low),
 				PriceToYuan(kline.Close),
 				kline.Volume)
 		}
 	}
 
-	// 分析要求
-	prompt += `
+	// 添加今日分时数据（如果有）
+	if minuteData != nil && len(minuteData.List) > 0 {
+		prompt += "\n**今日分时走势（最近20个时间点）**:\n"
+		listLen := len(minuteData.List)
+		startIdx := listLen - 20
+		if startIdx < 0 {
+			startIdx = 0
+		}
+		// 每隔几个点显示一次，避免数据过多
+		step := 1
+		if listLen > 40 {
+			step = listLen / 20
+		}
+		for i := startIdx; i < listLen; i += step {
+			item := minuteData.List[i]
+			prompt += fmt.Sprintf("- %s: %.2f元 (成交量: %d手)\n",
+				item.Time,
+				PriceToYuan(item.Price),
+				item.Number)
+		}
+		if listLen > 0 {
+			// 显示最新价格
+			latest := minuteData.List[listLen-1]
+			prompt += fmt.Sprintf("- **最新**: %s %.2f元\n", latest.Time, PriceToYuan(latest.Price))
+		}
+	}
+
+	// 分析要求（根据是否为持仓模式调整）
+	if a.AnalysisConfig.IsPositionMode() {
+		prompt += `
 ## 分析要求
 
-请基于以上数据进行**全面的技术分析**，并给出明确的操作建议。分析时请考虑：
+请基于以上数据（包括持仓信息、K线OHLC、30分钟K线、分时数据）进行**全面的技术分析和持仓评估**，并给出明确的操作建议。分析时请考虑：
 
-1. **趋势分析**: 当前价格与均线的关系，是否处于上升/下降/盘整趋势
-2. **量价关系**: 成交量的变化是否支持价格走势
-3. **盘口分析**: 买卖盘力量对比，大单情况
-4. **技术指标**: RSI是否超买超卖，均线排列情况
-5. **风险评估**: 当前位置的风险收益比
+1. **趋势分析**: 
+   - 当前价格与均线的关系，是否处于上升/下降/盘整趋势
+   - 日K线OHLC形态（如阳线、阴线、十字星等）的含义
+   - 30分钟K线显示的短期趋势方向
+   - 分时走势是否配合日线趋势
+
+2. **量价关系**: 
+   - 成交量的变化是否支持价格走势
+   - 近期成交额的增减情况
+   - 现量（当前成交量）是否异常
+   - 量价背离现象
+
+3. **盘口分析**: 
+   - 买卖盘力量对比，五档挂单情况
+   - 外盘内盘占比反映的多空力量
+   - 大单情况分析
+
+4. **技术指标**: 
+   - RSI是否超买超卖（>70超买，<30超卖）
+   - 均线排列情况（多头/空头排列）
+   - 波动率是否异常
+
+5. **K线形态分析**:
+   - 近5日K线的实体大小、上下影线长度
+   - 是否有明显的反转形态（如锤子线、上吊线等）
+   - 30分钟K线的短期趋势是否与日线一致
+
+6. **持仓评估**: 
+   - 当前盈亏情况是否达到预期
+   - 是否应该止盈或止损
+   - 是否应该加仓或减仓
+   - 持仓成本价与当前价格的关系
+   - 结合技术分析判断最佳止盈止损位置
+
+7. **风险评估**: 当前位置的风险收益比
+
+**特别要求**: 如果建议卖出或持有，请根据持仓成本价和技术分析（包括K线形态、趋势、支撑阻力位），明确给出：
+- **持仓止盈价**: 建议的止盈价格（元），应结合技术阻力位和持仓成本
+- **持仓止损价**: 建议的止损价格（元），应结合技术支撑位和持仓成本
+
+## 输出格式
+
+请严格按照以下JSON格式输出（只输出JSON，不要其他文字）:
+
+` + "```json" + `
+{
+  "signal": "BUY 或 SELL 或 HOLD",
+  "confidence": 0-100的整数（信心度，越高越确定）,
+  "reasoning": "详细的分析理由，包含关键技术指标、持仓评估和逻辑",
+  "target_price": 目标价格（元，数字），如果是SELL或HOLD可以为0,
+  "stop_loss": 止损价格（元，数字），如果是HOLD可以为0,
+  "risk_reward": "风险回报比，例如 1:2 或 1:3",
+  "position_profit_target": 持仓止盈价格（元，数字），基于持仓成本价和技术分析给出,
+  "position_stop_loss": 持仓止损价格（元，数字），基于持仓成本价和技术分析给出
+}
+` + "```" + `
+
+**注意事项**:
+- signal: BUY（建议买入/加仓）、SELL（建议卖出）、HOLD（建议持有）
+- position_profit_target: 持仓止盈价，应该高于购买价格（如果盈利）或当前价格（如果亏损但看涨）
+- position_stop_loss: 持仓止损价，应该低于购买价格（如果盈利）或当前价格（如果亏损）
+- 如果是当前有持仓且盈利，应谨慎评估是否需要止盈
+- 如果是当前有持仓且亏损，应评估是否需要止损或加仓摊低成本
+`
+	} else {
+		// 原有的监控模式分析要求
+		prompt += `
+## 分析要求
+
+请基于以上数据（包括K线OHLC、30分钟K线、分时数据）进行**全面的技术分析**，并给出明确的操作建议。分析时请考虑：
+
+1. **趋势分析**: 
+   - 当前价格与均线的关系，是否处于上升/下降/盘整趋势
+   - 日K线OHLC形态（如阳线、阴线、十字星等）的含义
+   - 30分钟K线显示的短期趋势方向
+   - 分时走势是否配合日线趋势
+
+2. **量价关系**: 
+   - 成交量的变化是否支持价格走势
+   - 近期成交额的增减情况
+   - 现量（当前成交量）是否异常
+   - 量价背离现象
+
+3. **盘口分析**: 
+   - 买卖盘力量对比，五档挂单情况
+   - 外盘内盘占比反映的多空力量
+   - 大单情况分析
+
+4. **技术指标**: 
+   - RSI是否超买超卖（>70超买，<30超卖）
+   - 均线排列情况（多头/空头排列）
+   - 波动率是否异常
+
+5. **K线形态分析**:
+   - 近5日K线的实体大小、上下影线长度
+   - 是否有明显的反转形态（如锤子线、上吊线等）
+   - 30分钟K线的短期趋势是否与日线一致
+
+6. **风险评估**: 当前位置的风险收益比
 
 ## 输出格式
 
@@ -412,7 +620,9 @@ func (a *StockAnalyzer) buildAnalysisPrompt(quote *QuoteData, dayKline *KlineDat
   "reasoning": "详细的分析理由，包含关键技术指标和逻辑",
   "target_price": 目标价格（元，数字），如果是SELL或HOLD可以为0,
   "stop_loss": 止损价格（元，数字），如果是HOLD可以为0,
-  "risk_reward": "风险回报比，例如 1:2 或 1:3"
+  "risk_reward": "风险回报比，例如 1:2 或 1:3",
+  "position_profit_target": 0,
+  "position_stop_loss": 0
 }
 ` + "```" + `
 
@@ -423,7 +633,9 @@ func (a *StockAnalyzer) buildAnalysisPrompt(quote *QuoteData, dayKline *KlineDat
 - 如果是BUY信号，必须给出target_price和stop_loss
 - 如果是SELL信号，应该给出止损建议
 - 如果是HOLD，说明原因（如趋势不明、等待突破等）
+- position_profit_target 和 position_stop_loss 在监控模式下为0
 `
+	}
 
 	return prompt
 }
@@ -502,6 +714,23 @@ func (a *StockAnalyzer) sendNotification(result *AnalysisResult) {
 		RiskReward:    result.RiskReward,
 		Timestamp:     result.Timestamp,
 		TechnicalData: result.TechnicalData,
+
+		// 新增：持仓止盈止损价格
+		PositionProfitTarget: result.PositionProfitTarget,
+		PositionStopLoss:     result.PositionStopLoss,
+	}
+
+	// 如果有持仓信息，转换为map格式传递
+	if result.PositionInfo != nil {
+		signal.PositionInfo = map[string]interface{}{
+			"quantity":            result.PositionInfo.Quantity,
+			"buy_price":           result.PositionInfo.BuyPrice,
+			"current_price":       result.PositionInfo.CurrentPrice,
+			"total_cost":          result.PositionInfo.TotalCost,
+			"market_value":        result.PositionInfo.MarketValue,
+			"profit_loss":         result.PositionInfo.ProfitLoss,
+			"profit_loss_percent": result.PositionInfo.ProfitLossPercent,
+		}
 	}
 
 	if err := a.Notifier.SendSignal(signal); err != nil {

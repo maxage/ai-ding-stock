@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI股票分析系统 - 配置管理</title>
+    <title>AI股票分析系统 - 智能监控平台</title>
     <style>
         * {
             margin: 0;
@@ -11,61 +11,236 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #8b5cf6;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --border-color: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: var(--text-primary);
             min-height: 100vh;
-            padding: 20px;
+            display: flex;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* 侧边栏 */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
         }
 
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card);
         }
 
-        .header h1 {
-            color: #333;
-            font-size: 32px;
-            margin-bottom: 10px;
+        .sidebar-header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
             display: flex;
             align-items: center;
+            gap: 10px;
         }
 
-        .header h1 .emoji {
-            font-size: 40px;
-            margin-right: 15px;
+        .sidebar-header .subtitle {
+            font-size: 12px;
+            opacity: 0.9;
         }
 
-        .header .subtitle {
-            color: #666;
-            font-size: 16px;
+        .sidebar-nav {
+            padding: 16px 0;
+            flex: 1;
         }
 
-        .config-panel {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 30px;
+        .nav-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-left-color: var(--primary-color);
+        }
+
+        .nav-item-icon {
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .nav-item-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* 顶部状态栏 */
+        .top-bar {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-dot.error {
+            background: var(--danger-color);
+        }
+
+        /* 卡片样式 */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .section-title {
-            font-size: 20px;
+        .card-title {
+            font-size: 18px;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
+        /* 按钮样式 */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-test {
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            color: white;
+        }
+
+        .btn-test:hover {
+            background: linear-gradient(135deg, #0891b2, #0e7490);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 表单样式 */
         .form-group {
             margin-bottom: 20px;
         }
@@ -73,17 +248,20 @@
         .form-group label {
             display: block;
             font-weight: 500;
-            color: #555;
             margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
         }
 
         .form-group input,
         .form-group select,
         .form-group textarea {
             width: 100%;
-            padding: 10px 15px;
-            border: 2px solid #e0e0e0;
+            padding: 10px 14px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
+            color: var(--text-primary);
             font-size: 14px;
             transition: border-color 0.3s;
         }
@@ -92,14 +270,15 @@
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary-color);
         }
 
         .form-group small {
             display: block;
-            color: #999;
-            margin-top: 5px;
+            color: var(--text-secondary);
+            margin-top: 6px;
             font-size: 12px;
+            opacity: 0.8;
         }
 
         .checkbox-group {
@@ -113,331 +292,907 @@
             cursor: pointer;
         }
 
+        /* 网格布局 */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        /* 股票列表 */
         .stock-list {
-            margin-top: 20px;
+            display: grid;
+            gap: 16px;
         }
 
         .stock-item {
-            background: #f8f9fa;
-            border: 2px solid #e0e0e0;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
             padding: 20px;
-            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .stock-item:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
         }
 
         .stock-item-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 16px;
         }
 
         .stock-item-title {
             font-weight: 600;
-            color: #333;
             font-size: 16px;
+            color: var(--text-primary);
         }
 
-        .btn-remove {
-            background: #ff4757;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
+        /* 测试结果 */
+        .test-result {
+            margin-top: 20px;
         }
 
-        .btn-remove:hover {
-            background: #ff3838;
-        }
-
-        .btn-add {
-            background: #5cb85c;
-            color: white;
-            border: none;
-            padding: 12px 25px;
+        .test-item {
+            padding: 16px;
+            background: var(--bg-dark);
             border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
-            margin-top: 10px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--border-color);
         }
 
-        .btn-add:hover {
-            background: #4cae4c;
+        .test-item.passed {
+            border-left-color: var(--success-color);
         }
 
-        .btn-save {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
+        .test-item.failed {
+            border-left-color: var(--danger-color);
+        }
+
+        .test-item.warning {
+            border-left-color: var(--warning-color);
+        }
+
+        .test-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .test-item-name {
             font-weight: 600;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-size: 14px;
         }
 
-        .btn-save:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        .test-status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
         }
 
-        .btn-save:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
+        .test-status-badge.passed {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success-color);
         }
 
-        .save-section {
-            text-align: center;
-            margin-top: 30px;
-            padding-top: 30px;
-            border-top: 2px solid #e0e0e0;
+        .test-status-badge.failed {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger-color);
         }
 
+        .test-status-badge.warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning-color);
+        }
+
+        /* 提示信息 */
         .alert {
-            padding: 15px 20px;
+            padding: 16px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             font-size: 14px;
+            border-left: 4px solid;
         }
 
         .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--success-color);
+            color: var(--success-color);
         }
 
         .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--danger-color);
+            color: var(--danger-color);
         }
 
         .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
+            background: rgba(245, 158, 11, 0.1);
+            border-color: var(--warning-color);
+            color: var(--warning-color);
         }
 
+        .alert-info {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        /* 加载动画 */
         .loading {
             text-align: center;
             padding: 40px;
-            color: #666;
+            color: var(--text-secondary);
         }
 
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 持仓信息区域 */
+        .position-fields {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* 统计卡片 */
+        .stat-card {
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-dark));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 12px 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .grid-3 {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         @media (max-width: 768px) {
-            .grid-2 {
+            .sidebar {
+                width: 80px;
+            }
+
+            .sidebar-header h1,
+            .nav-item-text,
+            .sidebar-header .subtitle {
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 80px;
+            }
+
+            .grid-2,
+            .grid-3 {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>
-                <span class="emoji">⚙️</span>
-                AI股票分析系统 - 配置管理
-            </h1>
-            <p class="subtitle">在线配置系统参数，无需手动编辑JSON文件</p>
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>📈 股票分析系统</h1>
+            <div class="subtitle">AI智能监控平台</div>
+        </div>
+        <div class="sidebar-nav">
+            <div class="nav-item active" onclick="showPage('dashboard', this)">
+                <span class="nav-item-icon">📊</span>
+                <span class="nav-item-text">系统概览</span>
+            </div>
+            <div class="nav-item" onclick="showPage('config', this)">
+                <span class="nav-item-icon">⚙️</span>
+                <span class="nav-item-text">系统配置</span>
+            </div>
+            <div class="nav-item" onclick="showPage('stocks', this)">
+                <span class="nav-item-icon">📈</span>
+                <span class="nav-item-text">股票监控</span>
+            </div>
+            <div class="nav-item" onclick="showPage('analysis', this)">
+                <span class="nav-item-icon">🔍</span>
+                <span class="nav-item-text">分析结果</span>
+            </div>
+            <div class="nav-item" onclick="showPage('test', this)">
+                <span class="nav-item-icon">🧪</span>
+                <span class="nav-item-text">系统测试</span>
+            </div>
+            <div class="nav-item" onclick="showPage('notification', this)">
+                <span class="nav-item-icon">🔔</span>
+                <span class="nav-item-text">通知设置</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <!-- 顶部状态栏 -->
+        <div class="top-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="systemStatus"></div>
+                <span id="systemStatusText">系统运行中</span>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="font-size: 13px; color: var(--text-secondary);" id="currentTime"></span>
+                <button class="btn btn-test" onclick="runFullTest()">🧪 立即测试</button>
+            </div>
         </div>
 
         <div id="alertContainer"></div>
 
-        <div id="loadingContainer" class="config-panel loading">
-            <p>⏳ 正在加载配置...</p>
+        <!-- 系统概览页面 -->
+        <div id="page-dashboard" class="page active">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📊 系统概览</div>
+                </div>
+                <div class="grid-3" id="dashboardStats">
+                    <div class="stat-card">
+                        <div class="stat-label">监控股票数</div>
+                        <div class="stat-value" id="statTotalStocks">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">运行状态</div>
+                        <div class="stat-value" style="font-size: 24px;" id="statSystemStatus">正常</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">API服务</div>
+                        <div class="stat-value" style="font-size: 24px;" id="statAPIPort">9090</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🚀 快速操作</div>
+                </div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="btn btn-test" onclick="showPage('test', null); runFullTest()">🧪 运行系统测试</button>
+                    <button class="btn btn-primary" onclick="showPage('stocks', null)">📈 查看股票监控</button>
+                    <button class="btn btn-primary" onclick="showPage('config', null)">⚙️ 系统配置</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📋 最近分析记录</div>
+                </div>
+                <div id="recentAnalysis" style="color: var(--text-secondary);">
+                    <div style="text-align: center; padding: 20px;">
+                        <div class="spinner" style="display: inline-block; width: 20px; height: 20px;"></div>
+                        <p style="margin-top: 10px;">正在加载分析记录...</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div id="configContainer" style="display: none;">
-            <!-- TDX API配置 -->
-            <div class="config-panel">
-                <h2 class="section-title">📡 TDX API配置</h2>
-                <div class="form-group">
-                    <label for="tdx_api_url">TDX API地址</label>
-                    <input type="text" id="tdx_api_url" placeholder="http://192.168.1.222:8181">
-                    <small>通达信股票数据API服务地址</small>
+        <!-- 系统测试页面 -->
+        <div id="page-test" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🧪 系统测试</div>
+                    <button class="btn btn-test" onclick="runFullTest()">🔄 重新测试</button>
                 </div>
-            </div>
-
-            <!-- AI配置 -->
-            <div class="config-panel">
-                <h2 class="section-title">🤖 AI模型配置</h2>
-                <div class="form-group">
-                    <label for="ai_provider">AI提供商</label>
-                    <select id="ai_provider" onchange="toggleAIConfig()">
-                        <option value="deepseek">DeepSeek（推荐）</option>
-                        <option value="qwen">Qwen（通义千问）</option>
-                        <option value="custom">自定义API</option>
-                    </select>
-                    <small>选择AI分析引擎</small>
-                </div>
-
-                <div id="deepseek_config" class="form-group">
-                    <label for="deepseek_key">DeepSeek API密钥</label>
-                    <input type="password" id="deepseek_key" placeholder="sk-xxx">
-                    <small>从 https://platform.deepseek.com 获取</small>
-                </div>
-
-                <div id="qwen_config" class="form-group" style="display: none;">
-                    <label for="qwen_key">Qwen API密钥</label>
-                    <input type="password" id="qwen_key" placeholder="sk-xxx">
-                    <small>从 https://dashscope.aliyun.com 获取</small>
-                </div>
-
-                <div id="custom_config" style="display: none;">
-                    <div class="form-group">
-                        <label for="custom_api_url">自定义API地址</label>
-                        <input type="text" id="custom_api_url" placeholder="https://api.openai.com/v1">
-                        <small>兼容OpenAI格式的API基础地址</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="custom_api_key">自定义API密钥</label>
-                        <input type="password" id="custom_api_key" placeholder="sk-xxx">
-                    </div>
-                    <div class="form-group">
-                        <label for="custom_model_name">模型名称</label>
-                        <input type="text" id="custom_model_name" placeholder="gpt-4o">
-                        <small>例如: gpt-4o, claude-3-5-sonnet-20241022</small>
+                <div id="testResults" class="test-result">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>点击"立即测试"或"重新测试"开始测试</p>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- 股票配置 -->
-            <div class="config-panel">
-                <h2 class="section-title">📊 监控股票配置</h2>
-                <div id="stockList" class="stock-list"></div>
-                <button class="btn-add" onclick="addStock()">➕ 添加股票</button>
+        <!-- 系统配置页面 -->
+        <div id="page-config" class="page">
+            <div id="loadingContainer" class="card loading">
+                <div class="spinner"></div>
+                <p>⏳ 正在加载配置...</p>
             </div>
 
-            <!-- 通知配置 -->
-            <div class="config-panel">
-                <h2 class="section-title">🔔 通知配置</h2>
-                <div class="form-group checkbox-group">
-                    <input type="checkbox" id="notification_enabled">
-                    <label for="notification_enabled">启用通知系统</label>
+            <div id="configContainer" style="display: none;">
+                <!-- TDX API配置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📡 TDX API配置</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="tdx_api_url">TDX API地址</label>
+                        <input type="text" id="tdx_api_url" placeholder="http://192.168.1.222:8181">
+                        <small>通达信股票数据API服务地址</small>
+                    </div>
                 </div>
 
-                <div id="notification_settings">
-                    <h3 style="margin: 20px 0 15px 0; font-size: 16px; color: #555;">钉钉通知</h3>
+                <!-- AI配置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🤖 AI模型配置</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="ai_provider">AI提供商</label>
+                        <select id="ai_provider" onchange="toggleAIConfig()">
+                            <option value="deepseek">DeepSeek（推荐）</option>
+                            <option value="qwen">Qwen（通义千问）</option>
+                            <option value="custom">自定义API</option>
+                        </select>
+                        <small>选择AI分析引擎</small>
+                    </div>
+
+                    <div id="deepseek_config" class="form-group">
+                        <label for="deepseek_key">DeepSeek API密钥</label>
+                        <input type="password" id="deepseek_key" placeholder="sk-xxx">
+                        <small>从 https://platform.deepseek.com 获取</small>
+                    </div>
+
+                    <div id="qwen_config" class="form-group" style="display: none;">
+                        <label for="qwen_key">Qwen API密钥</label>
+                        <input type="password" id="qwen_key" placeholder="sk-xxx">
+                        <small>从 https://dashscope.aliyun.com 获取</small>
+                    </div>
+
+                    <div id="custom_config" style="display: none;">
+                        <div class="form-group">
+                            <label for="custom_api_url">自定义API地址</label>
+                            <input type="text" id="custom_api_url" placeholder="https://api.openai.com/v1">
+                            <small>兼容OpenAI格式的API基础地址</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="custom_api_key">自定义API密钥</label>
+                            <input type="password" id="custom_api_key" placeholder="sk-xxx">
+                        </div>
+                        <div class="form-group">
+                            <label for="custom_model_name">模型名称</label>
+                            <input type="text" id="custom_model_name" placeholder="gpt-4o">
+                            <small>例如: gpt-4o, claude-3-5-sonnet-20241022</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 交易时间配置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">⏰ 交易时间配置</div>
+                    </div>
                     <div class="form-group checkbox-group">
-                        <input type="checkbox" id="dingtalk_enabled">
-                        <label for="dingtalk_enabled">启用钉钉通知</label>
+                        <input type="checkbox" id="trading_time_enable">
+                        <label for="trading_time_enable">启用交易时间检查</label>
+                        <small style="margin-left: 30px;">启用后仅在交易时段进行分析</small>
                     </div>
                     <div class="form-group">
-                        <label for="dingtalk_webhook">钉钉Webhook地址</label>
-                        <input type="text" id="dingtalk_webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx">
+                        <label for="trading_hours">交易时段</label>
+                        <input type="text" id="trading_hours" placeholder='["09:30-11:30", "13:00-15:00"]'>
+                        <small>JSON数组格式，多个时段用逗号分隔</small>
                     </div>
                     <div class="form-group">
-                        <label for="dingtalk_secret">钉钉Secret（可选）</label>
-                        <input type="text" id="dingtalk_secret" placeholder="aiagents通知">
+                        <label for="timezone">时区</label>
+                        <input type="text" id="timezone" placeholder="Asia/Shanghai">
                     </div>
+                </div>
 
-                    <h3 style="margin: 20px 0 15px 0; font-size: 16px; color: #555;">飞书通知</h3>
+                <!-- 系统配置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🔧 系统配置</div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="api_server_port">API服务端口</label>
+                            <input type="number" id="api_server_port" placeholder="9090">
+                        </div>
+                        <div class="form-group">
+                            <label for="log_dir">日志目录</label>
+                            <input type="text" id="log_dir" placeholder="stock_analysis_logs">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="api_token">API Token（用于重启等服务）</label>
+                        <input type="password" id="api_token" placeholder="默认: 1122334455667788">
+                        <small>用于前端重启后端等操作的认证Token。默认值: 1122334455667788（为了安全，强烈建议修改！）。可在环境变量中设置 API_TOKEN，或在此处手动配置。建议使用强密码。</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="analysis_history_limit">分析历史记录数量</label>
+                        <input type="number" id="analysis_history_limit" min="3" max="100" placeholder="20">
+                        <small>每个股票最多保存的分析记录数。范围：3-100条，默认20条。系统概览中只显示3条，其余可通过滚动条查看。</small>
+                    </div>
+                </div>
+
+                <!-- 保存按钮和重启按钮 -->
+                <div class="card">
+                    <div style="text-align: center;">
+                        <button class="btn btn-primary" onclick="saveConfig()" style="padding: 14px 40px; font-size: 16px; margin-right: 12px;">
+                            💾 保存配置
+                        </button>
+                        <button class="btn btn-test" onclick="restartBackend()" style="padding: 14px 40px; font-size: 16px;">
+                            🔄 重启后端
+                        </button>
+                        <p style="margin-top: 15px; color: var(--text-secondary); font-size: 14px;">
+                            ⚠️ 保存后需要重启程序才能生效 | 🔄 重启后端需要提供正确的API Token
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 股票监控页面 -->
+        <div id="page-stocks" class="page">
+            <div id="loadingContainerStocks" class="card loading">
+                <div class="spinner"></div>
+                <p>⏳ 正在加载股票列表...</p>
+            </div>
+
+            <div id="stocksContainer" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 监控股票配置</div>
+                        <button class="btn btn-primary" onclick="addStock()">➕ 添加股票</button>
+                    </div>
+                    <div id="stockList" class="stock-list"></div>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-primary" onclick="saveStockConfig()">💾 保存股票配置</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🎯 手动测试分析</div>
+                    </div>
+                    <div id="testStocksList" style="display: grid; gap: 12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析结果页面 -->
+        <div id="page-analysis" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔍 分析结果</div>
+                </div>
+                <div id="analysisResults" style="color: var(--text-secondary);">
+                    暂无分析结果，请等待自动分析或手动触发分析
+                </div>
+            </div>
+        </div>
+
+        <!-- 通知设置页面 -->
+        <div id="page-notification" class="page">
+            <div id="loadingContainerNotif" class="card loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>⏳ 正在加载通知配置...</p>
+            </div>
+
+            <div id="notificationContainer">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🔔 通知配置</div>
+                    </div>
                     <div class="form-group checkbox-group">
-                        <input type="checkbox" id="feishu_enabled">
-                        <label for="feishu_enabled">启用飞书通知</label>
+                        <input type="checkbox" id="notification_enabled">
+                        <label for="notification_enabled">启用通知系统</label>
                     </div>
-                    <div class="form-group">
-                        <label for="feishu_webhook">飞书Webhook地址</label>
-                        <input type="text" id="feishu_webhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx">
-                    </div>
-                    <div class="form-group">
-                        <label for="feishu_secret">飞书Secret（可选）</label>
-                        <input type="text" id="feishu_secret">
-                    </div>
-                </div>
-            </div>
 
-            <!-- 交易时间配置 -->
-            <div class="config-panel">
-                <h2 class="section-title">⏰ 交易时间配置</h2>
-                <div class="form-group checkbox-group">
-                    <input type="checkbox" id="trading_time_enable">
-                    <label for="trading_time_enable">启用交易时间检查</label>
-                    <small style="margin-left: 30px;">启用后仅在交易时段进行分析</small>
-                </div>
-                <div class="form-group">
-                    <label for="trading_hours">交易时段</label>
-                    <input type="text" id="trading_hours" placeholder='["09:30-11:30", "13:00-15:00"]'>
-                    <small>JSON数组格式，多个时段用逗号分隔</small>
-                </div>
-                <div class="form-group">
-                    <label for="timezone">时区</label>
-                    <input type="text" id="timezone" placeholder="Asia/Shanghai">
-                </div>
-            </div>
-
-            <!-- 系统配置 -->
-            <div class="config-panel">
-                <h2 class="section-title">🔧 系统配置</h2>
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label for="api_server_port">API服务端口</label>
-                        <input type="number" id="api_server_port" placeholder="9090">
+                    <div style="margin: 20px 0; padding: 16px; background: var(--bg-dark); border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">💡 提示</div>
+                        <div style="font-size: 13px; color: var(--text-primary); line-height: 1.6;">
+                            配置通知后，当股票分析系统产生交易信号时，会自动发送通知到您配置的钉钉或飞书群。
+                            如果配置页面正在加载，请确保后端服务正常运行，并刷新页面。
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="log_dir">日志目录</label>
-                        <input type="text" id="log_dir" placeholder="stock_analysis_logs">
+
+                    <div id="notification_settings">
+                        <h3 style="margin: 20px 0 15px 0; font-size: 16px; color: var(--text-primary);">钉钉通知</h3>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="dingtalk_enabled">
+                            <label for="dingtalk_enabled">启用钉钉通知</label>
+                        </div>
+                        <div class="form-group">
+                            <label for="dingtalk_webhook">钉钉Webhook地址</label>
+                            <input type="text" id="dingtalk_webhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx">
+                        </div>
+                        <div class="form-group">
+                            <label for="dingtalk_secret">钉钉Secret（可选）</label>
+                            <input type="text" id="dingtalk_secret" placeholder="aiagents通知">
+                        </div>
+
+                        <h3 style="margin: 20px 0 15px 0; font-size: 16px; color: var(--text-primary);">飞书通知</h3>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="feishu_enabled">
+                            <label for="feishu_enabled">启用飞书通知</label>
+                        </div>
+                        <div class="form-group">
+                            <label for="feishu_webhook">飞书Webhook地址</label>
+                            <input type="text" id="feishu_webhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx">
+                        </div>
+                        <div class="form-group">
+                            <label for="feishu_secret">飞书Secret（可选）</label>
+                            <input type="text" id="feishu_secret">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; text-align: center;">
+                        <button class="btn btn-primary" onclick="saveNotificationConfig()">💾 保存通知配置</button>
                     </div>
                 </div>
-            </div>
-
-            <!-- 保存按钮 -->
-            <div class="config-panel save-section">
-                <button class="btn-save" onclick="saveConfig()">💾 保存配置</button>
-                <p style="margin-top: 15px; color: #999; font-size: 14px;">
-                    ⚠️ 保存后需要重启程序才能生效
-                </p>
             </div>
         </div>
     </div>
 
     <script>
         let currentConfig = null;
+        let currentPage = 'dashboard';
 
-        // 页面加载时获取配置
+        // 页面加载
         window.onload = function() {
-            loadConfig();
+            updateTime();
+            setInterval(updateTime, 1000);
+            checkSystemStatus();
+            setInterval(checkSystemStatus, 5000);
+            
+            // 异步加载配置
+            loadConfig().then(() => {
+                loadStocks();
+                updateDashboard();
+                loadNotificationConfig();
+                loadRecentAnalysis(); // 加载最近分析记录
+            }).catch(error => {
+                console.error('初始化失败:', error);
+                showAlert('error', '系统初始化失败，请检查后端服务是否正常运行');
+            });
         };
+
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('zh-CN');
+        }
+
+        // 检查系统状态
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch('/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'ok') {
+                        document.getElementById('systemStatus').className = 'status-dot';
+                        document.getElementById('systemStatusText').textContent = '系统运行中';
+                        document.getElementById('statSystemStatus').textContent = '正常运行';
+                    } else {
+                        document.getElementById('systemStatus').className = 'status-dot error';
+                        document.getElementById('systemStatusText').textContent = '系统异常';
+                        document.getElementById('statSystemStatus').textContent = '异常';
+                    }
+                } else {
+                    document.getElementById('systemStatus').className = 'status-dot error';
+                    document.getElementById('systemStatusText').textContent = '系统异常';
+                    document.getElementById('statSystemStatus').textContent = '异常';
+                }
+            } catch (error) {
+                document.getElementById('systemStatus').className = 'status-dot error';
+                document.getElementById('systemStatusText').textContent = '连接失败';
+                document.getElementById('statSystemStatus').textContent = '连接失败';
+            }
+        }
+
+        // 切换页面
+        function showPage(pageId, navItemElement) {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 移除所有导航项的active状态
+            document.querySelectorAll('.nav-item').forEach((item, index) => {
+                item.classList.remove('active');
+                // 检查是否是当前页面对应的导航项
+                const navItems = ['dashboard', 'config', 'stocks', 'analysis', 'test', 'notification'];
+                if (navItems[index] === pageId) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // 如果传入了导航项元素，也激活它（用于点击导航项时）
+            if (navItemElement) {
+                navItemElement.classList.add('active');
+            }
+
+            // 显示目标页面
+            const targetPage = document.getElementById(`page-${pageId}`);
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+            
+            currentPage = pageId;
+
+            // 页面特定加载
+            if (pageId === 'stocks') {
+                loadStocks();
+            } else if (pageId === 'dashboard') {
+                updateDashboard();
+                loadRecentAnalysis(); // 刷新最近分析记录
+            } else if (pageId === 'notification') {
+                if (!currentConfig) {
+                    loadConfig().then(() => {
+                        loadNotificationConfig();
+                    });
+                } else {
+                    loadNotificationConfig();
+                }
+            }
+        }
+
+        // 更新仪表板
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/api/stocks');
+                const result = await response.json();
+                if (result.code === 0) {
+                    document.getElementById('statTotalStocks').textContent = result.data.total;
+                }
+            } catch (error) {
+                console.error('更新仪表板失败:', error);
+            }
+        }
+
+        // 信号映射函数：将英文信号转为中文
+        function getSignalText(signal) {
+            switch(signal) {
+                case 'BUY':
+                    return '买入';
+                case 'SELL':
+                    return '卖出';
+                case 'HOLD':
+                    return '持有';
+                default:
+                    return signal;
+            }
+        }
+
+        // 加载最近分析记录
+        async function loadRecentAnalysis() {
+            const container = document.getElementById('recentAnalysis');
+            if (!container) return;
+
+            try {
+                // 获取配置中的分析历史记录数量限制，默认20条
+                const limit = (currentConfig && currentConfig.analysis_history_limit) ? currentConfig.analysis_history_limit : 20;
+                const response = await fetch(`/api/analysis/recent?limit=${limit}`);
+                const result = await response.json();
+
+                if (result.code === 0 && result.data && result.data.records && result.data.records.length > 0) {
+                    const records = result.data.records;
+                    
+                    // 系统概览中只显示前3条，其余用滚动条查看
+                    const displayLimit = 3; // 系统概览中固定显示3条
+                    const visibleRecords = records.slice(0, displayLimit);
+                    const scrollableRecords = records.slice(displayLimit);
+                    
+                    let html = '<div style="display: grid; gap: 12px;">';
+                    
+                    // 先显示前3条（固定显示）
+                    visibleRecords.forEach((record) => {
+                        const signalColor = record.signal === 'BUY' ? 'var(--success-color)' : 
+                                          record.signal === 'SELL' ? 'var(--danger-color)' : 
+                                          'var(--warning-color)';
+                        const signalEmoji = record.signal === 'BUY' ? '🚀' : 
+                                          record.signal === 'SELL' ? '⚠️' : 
+                                          '⏸️';
+                        const signalText = getSignalText(record.signal); // 使用中文信号
+                        const time = new Date(record.timestamp).toLocaleString('zh-CN');
+                        
+                        html += `
+                            <div style="padding: 12px; background: var(--bg-card); border-radius: 8px; border-left: 4px solid ${signalColor};">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">
+                                        ${signalEmoji} ${record.stock_name}(${record.stock_code})
+                                    </div>
+                                    <div style="font-size: 12px; color: var(--text-secondary);">${time}</div>
+                                </div>
+                                <div style="display: flex; gap: 16px; font-size: 13px;">
+                                    <div>
+                                        <span style="color: var(--text-secondary);">信号:</span>
+                                        <span style="color: ${signalColor}; font-weight: 600; margin-left: 4px;">${signalText}</span>
+                                    </div>
+                                    <div>
+                                        <span style="color: var(--text-secondary);">价格:</span>
+                                        <span style="color: var(--text-primary); margin-left: 4px;">¥${record.current_price.toFixed(2)}</span>
+                                    </div>
+                                    <div>
+                                        <span style="color: var(--text-secondary);">信心度:</span>
+                                        <span style="color: var(--text-primary); margin-left: 4px;">${record.confidence}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    // 如果有更多记录，显示在滚动区域内
+                    if (scrollableRecords.length > 0) {
+                        html += '</div>'; // 关闭固定显示区域
+                        html += '<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); max-height: 400px; overflow-y: auto; padding-right: 8px;">';
+                        html += `<div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">更多记录 (共${records.length}条，下方可滚动查看):</div>`;
+                        html += '<div style="display: grid; gap: 12px;">';
+                        
+                        scrollableRecords.forEach((record) => {
+                            const signalColor = record.signal === 'BUY' ? 'var(--success-color)' : 
+                                              record.signal === 'SELL' ? 'var(--danger-color)' : 
+                                              'var(--warning-color)';
+                            const signalEmoji = record.signal === 'BUY' ? '🚀' : 
+                                              record.signal === 'SELL' ? '⚠️' : 
+                                              '⏸️';
+                            const signalText = getSignalText(record.signal); // 使用中文信号
+                            const time = new Date(record.timestamp).toLocaleString('zh-CN');
+                            
+                            html += `
+                                <div style="padding: 12px; background: var(--bg-card); border-radius: 8px; border-left: 4px solid ${signalColor};">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">
+                                            ${signalEmoji} ${record.stock_name}(${record.stock_code})
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--text-secondary);">${time}</div>
+                                    </div>
+                                    <div style="display: flex; gap: 16px; font-size: 13px;">
+                                        <div>
+                                            <span style="color: var(--text-secondary);">信号:</span>
+                                            <span style="color: ${signalColor}; font-weight: 600; margin-left: 4px;">${signalText}</span>
+                                        </div>
+                                        <div>
+                                            <span style="color: var(--text-secondary);">价格:</span>
+                                            <span style="color: var(--text-primary); margin-left: 4px;">¥${record.current_price.toFixed(2)}</span>
+                                        </div>
+                                        <div>
+                                            <span style="color: var(--text-secondary);">信心度:</span>
+                                            <span style="color: var(--text-primary); margin-left: 4px;">${record.confidence}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div></div>'; // 关闭滚动区域
+                    } else {
+                        html += '</div>'; // 如果没有更多记录，直接关闭固定显示区域
+                    }
+                    
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">暂无分析记录</div>';
+                }
+            } catch (error) {
+                console.error('加载最近分析记录失败:', error);
+                container.innerHTML = '<div style="color: var(--danger-color); text-align: center; padding: 20px;">加载失败，请稍后重试</div>';
+            }
+        }
+
+        // 运行完整测试
+        async function runFullTest() {
+            const testResultsDiv = document.getElementById('testResults');
+            testResultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在执行系统测试...</p></div>';
+
+            try {
+                const response = await fetch('/api/test', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.code === 0) {
+                    displayTestResults(result.data);
+                } else {
+                    testResultsDiv.innerHTML = `<div class="alert alert-error">测试失败: ${result.message}</div>`;
+                }
+            } catch (error) {
+                testResultsDiv.innerHTML = `<div class="alert alert-error">测试请求失败: ${error.message}</div>`;
+            }
+        }
+
+        // 显示测试结果
+        function displayTestResults(data) {
+            const testResultsDiv = document.getElementById('testResults');
+            let html = '';
+
+            if (data.success) {
+                html += '<div class="alert alert-success">✅ 所有测试通过！系统运行正常</div>';
+            } else {
+                html += `<div class="alert alert-warning">⚠️ 部分测试未通过 (${data.passed}/${data.total} 通过)</div>`;
+            }
+
+            html += '<div style="margin-top: 20px;">';
+            data.tests.forEach(test => {
+                const statusClass = test.status || 'failed';
+                html += `
+                    <div class="test-item ${statusClass}">
+                        <div class="test-item-header">
+                            <div class="test-item-name">${test.name}</div>
+                            <div class="test-status-badge ${statusClass}">${test.status === 'passed' ? '✓ 通过' : test.status === 'warning' ? '⚠ 警告' : '✗ 失败'}</div>
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 13px; margin-top: 8px;">${test.message}</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            testResultsDiv.innerHTML = html;
+        }
 
         // 加载配置
         async function loadConfig() {
             try {
                 const response = await fetch('/api/config');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 const result = await response.json();
 
                 if (result.code === 0) {
                     currentConfig = result.data;
                     populateForm(currentConfig);
-                    document.getElementById('loadingContainer').style.display = 'none';
-                    document.getElementById('configContainer').style.display = 'block';
+                    
+                    const loadingEl = document.getElementById('loadingContainer');
+                    const configEl = document.getElementById('configContainer');
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    if (configEl) configEl.style.display = 'block';
+                    
+                    // 加载通知配置
+                    populateNotificationForm(currentConfig);
+                    
+                    // 加载通知页面
+                    loadNotificationConfig();
                 } else {
-                    showAlert('error', '加载配置失败: ' + result.message);
+                    throw new Error(result.message || '加载配置失败');
                 }
             } catch (error) {
+                console.error('加载配置失败:', error);
                 showAlert('error', '加载配置失败: ' + error.message);
+                // 即使加载失败，也显示配置界面
+                const loadingEl = document.getElementById('loadingContainer');
+                const configEl = document.getElementById('configContainer');
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (configEl) configEl.style.display = 'block';
             }
         }
 
         // 填充表单
         function populateForm(config) {
-            // TDX API
             document.getElementById('tdx_api_url').value = config.tdx_api_url || '';
-
-            // AI配置
             document.getElementById('ai_provider').value = config.ai_config?.provider || 'deepseek';
             document.getElementById('deepseek_key').value = config.ai_config?.deepseek_key || '';
             document.getElementById('qwen_key').value = config.ai_config?.qwen_key || '';
@@ -446,10 +1201,43 @@
             document.getElementById('custom_model_name').value = config.ai_config?.custom_model_name || '';
             toggleAIConfig();
 
-            // 股票列表
-            renderStockList(config.stocks || []);
+            document.getElementById('trading_time_enable').checked = config.trading_time?.enable_check || false;
+            document.getElementById('trading_hours').value = JSON.stringify(config.trading_time?.trading_hours || ["09:30-11:30", "13:00-15:00"]);
+            document.getElementById('timezone').value = config.trading_time?.timezone || 'Asia/Shanghai';
 
-            // 通知配置
+            document.getElementById('api_server_port').value = config.api_server_port || 9090;
+            document.getElementById('log_dir').value = config.log_dir || 'stock_analysis_logs';
+            document.getElementById('analysis_history_limit').value = config.analysis_history_limit || 20;
+            
+            // API Token（显示时隐藏真实值，只显示部分）
+            if (config.api_token && config.api_token.trim() !== '') {
+                const tokenValue = config.api_token;
+                // 保存真实Token到隐藏字段或localStorage，用于重启时使用
+                if (typeof(Storage) !== "undefined") {
+                    localStorage.setItem('api_token_real', tokenValue);
+                }
+                // 显示时只显示部分字符
+                if (tokenValue.length > 10) {
+                    document.getElementById('api_token').value = tokenValue.substring(0, 4) + '*'.repeat(Math.min(8, tokenValue.length - 8)) + tokenValue.substring(tokenValue.length - 4);
+                } else {
+                    document.getElementById('api_token').value = tokenValue;
+                }
+            } else {
+                // 如果没有Token，显示默认值
+                document.getElementById('api_token').value = '1122334455667788';
+                if (typeof(Storage) !== "undefined") {
+                    localStorage.setItem('api_token_real', '1122334455667788');
+                }
+            }
+
+            // 渲染股票列表
+            if (config.stocks) {
+                renderStockList(config.stocks);
+            }
+        }
+
+        // 填充通知表单
+        function populateNotificationForm(config) {
             document.getElementById('notification_enabled').checked = config.notification?.enabled || false;
             document.getElementById('dingtalk_enabled').checked = config.notification?.dingtalk?.enabled || false;
             document.getElementById('dingtalk_webhook').value = config.notification?.dingtalk?.webhook_url || '';
@@ -457,15 +1245,37 @@
             document.getElementById('feishu_enabled').checked = config.notification?.feishu?.enabled || false;
             document.getElementById('feishu_webhook').value = config.notification?.feishu?.webhook_url || '';
             document.getElementById('feishu_secret').value = config.notification?.feishu?.secret || '';
+        }
 
-            // 交易时间
-            document.getElementById('trading_time_enable').checked = config.trading_time?.enable_check || false;
-            document.getElementById('trading_hours').value = JSON.stringify(config.trading_time?.trading_hours || ["09:30-11:30", "13:00-15:00"]);
-            document.getElementById('timezone').value = config.trading_time?.timezone || 'Asia/Shanghai';
-
-            // 系统配置
-            document.getElementById('api_server_port').value = config.api_server_port || 9090;
-            document.getElementById('log_dir').value = config.log_dir || 'stock_analysis_logs';
+        // 加载通知配置
+        function loadNotificationConfig() {
+            try {
+                if (currentConfig && currentConfig.notification) {
+                    populateNotificationForm(currentConfig);
+                } else {
+                    // 如果配置中没有通知设置，使用默认值
+                    document.getElementById('notification_enabled').checked = false;
+                    document.getElementById('dingtalk_enabled').checked = false;
+                    document.getElementById('dingtalk_webhook').value = '';
+                    document.getElementById('dingtalk_secret').value = '';
+                    document.getElementById('feishu_enabled').checked = false;
+                    document.getElementById('feishu_webhook').value = '';
+                    document.getElementById('feishu_secret').value = '';
+                }
+                
+                // 显示通知配置容器（隐藏加载动画）
+                const loadingEl = document.getElementById('loadingContainerNotif');
+                const containerEl = document.getElementById('notificationContainer');
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (containerEl) containerEl.style.display = 'block';
+            } catch (error) {
+                console.error('加载通知配置失败:', error);
+                // 即使加载失败，也显示配置界面
+                const loadingEl = document.getElementById('loadingContainerNotif');
+                const containerEl = document.getElementById('notificationContainer');
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (containerEl) containerEl.style.display = 'block';
+            }
         }
 
         // 切换AI配置显示
@@ -486,8 +1296,8 @@
                 stockItem.className = 'stock-item';
                 stockItem.innerHTML = `
                     <div class="stock-item-header">
-                        <div class="stock-item-title">股票 #${index + 1}</div>
-                        <button class="btn-remove" onclick="removeStock(${index})">删除</button>
+                        <div class="stock-item-title">股票 #${index + 1} - ${stock.name || stock.code}</div>
+                        <button class="btn btn-danger" onclick="removeStock(${index})">删除</button>
                     </div>
                     <div class="grid-2">
                         <div class="form-group">
@@ -513,9 +1323,175 @@
                         <input type="checkbox" class="stock-enabled" data-index="${index}" ${stock.enabled ? 'checked' : ''}>
                         <label>启用此股票</label>
                     </div>
+                    <div class="position-fields">
+                        <label style="font-weight: 600; margin-bottom: 10px; display: block;">📊 持仓信息（可选）</label>
+                        <small style="display: block; margin-bottom: 10px; opacity: 0.8;">如果不填写，将按监控模式运行（仅技术分析）</small>
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>持仓数量（股）</label>
+                                <input type="number" class="stock-position-quantity" data-index="${index}" value="${stock.position_quantity || ''}" placeholder="1000">
+                            </div>
+                            <div class="form-group">
+                                <label>购买价格（元/股）</label>
+                                <input type="number" step="0.01" class="stock-buy-price" data-index="${index}" value="${stock.buy_price || ''}" placeholder="12.50">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>购买日期（可选）</label>
+                            <input type="date" class="stock-buy-date" data-index="${index}" value="${stock.buy_date || ''}">
+                            <small>购买日期，用于计算持仓天数</small>
+                        </div>
+                    </div>
                 `;
                 container.appendChild(stockItem);
             });
+
+            // 更新测试股票列表
+            updateTestStocksList(stocks);
+        }
+
+        // 更新测试股票列表
+        function updateTestStocksList(stocks) {
+            const container = document.getElementById('testStocksList');
+            if (!container) return;
+            
+            container.innerHTML = '';
+
+            if (!stocks || stocks.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 40px;">暂无股票配置，请先添加股票</div>';
+                return;
+            }
+
+            stocks.forEach((stock, index) => {
+                if (stock && stock.code) {
+                    const testItem = document.createElement('div');
+                    testItem.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border-color);';
+                    testItem.innerHTML = `
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">${stock.name || '未命名'} (${stock.code})</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">点击测试按钮立即运行一次分析</div>
+                        </div>
+                        <button class="btn btn-test" onclick="testStockAnalysis('${stock.code}'); return false;">🧪 测试分析</button>
+                    `;
+                    container.appendChild(testItem);
+                }
+            });
+
+            if (container.innerHTML === '') {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 40px;">暂无启用的股票，请在股票配置中启用股票</div>';
+            }
+        }
+
+        // 测试股票分析
+        async function testStockAnalysis(code) {
+            // 获取按钮元素（通过事件或者通过代码查找）
+            let btn;
+            if (event && event.target) {
+                btn = event.target;
+            } else {
+                // 如果没有event，通过code查找对应的按钮
+                const buttons = document.querySelectorAll('.btn-test');
+                for (let b of buttons) {
+                    if (b.textContent.includes('测试分析') && b.onclick && b.onclick.toString().includes(code)) {
+                        btn = b;
+                        break;
+                    }
+                }
+            }
+            
+            if (!btn) {
+                // 如果找不到按钮，创建一个临时的
+                btn = { disabled: false, textContent: '', style: {} };
+            }
+            
+            const originalText = btn.textContent || '🧪 测试分析';
+            btn.disabled = true;
+            btn.textContent = '⏳ 分析中...';
+
+            try {
+                console.log(`开始测试股票分析: ${code}`);
+                const response = await fetch(`/api/test/stock/${code}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                console.log('测试结果:', result);
+
+                // 检查返回结果
+                if (result.code === 0) {
+                    // 检查是否有结果数据（可能是result.data.result或result.data）
+                    let analysisResult = null;
+                    if (result.data && result.data.result) {
+                        analysisResult = result.data.result;
+                    } else if (result.data && result.data.signal) {
+                        // 直接返回分析结果的情况
+                        analysisResult = result.data;
+                    }
+                    
+                    if (analysisResult) {
+                        const signal = analysisResult.signal || 'N/A';
+                        const signalText = getSignalText(signal); // 使用中文信号
+                        const confidence = analysisResult.confidence || 'N/A';
+                        showAlert('success', `✅ 股票 ${code} 分析完成！信号: ${signalText}, 信心度: ${confidence}%`);
+                        // 显示分析结果（不传navItemElement，因为是从代码调用）
+                        showPage('analysis', null);
+                        displayAnalysisResult(code, analysisResult);
+                    } else {
+                        // API返回成功但格式不对
+                        console.error('分析结果格式错误:', result);
+                        showAlert('warning', `⚠️ 分析完成但结果格式异常: ${result.message || '请查看控制台日志'}`);
+                    }
+                } else {
+                    showAlert('error', `❌ 分析失败: ${result.message || '未知错误'}`);
+                }
+            } catch (error) {
+                console.error('测试股票分析失败:', error);
+                showAlert('error', `❌ 测试失败: ${error.message || '网络错误或服务异常'}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        // 显示分析结果
+        function displayAnalysisResult(code, result) {
+            const container = document.getElementById('analysisResults');
+            const signal = result.signal || 'N/A';
+            const signalText = getSignalText(signal); // 使用中文信号
+            const signalColor = signal === 'BUY' ? 'var(--success-color)' : 
+                              signal === 'SELL' ? 'var(--danger-color)' : 
+                              'var(--warning-color)';
+            
+            container.innerHTML = `
+                <div class="card" style="background: var(--bg-dark);">
+                    <div class="card-header">
+                        <div class="card-title">${code} 分析结果</div>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div class="grid-2" style="margin-bottom: 20px;">
+                            <div>
+                                <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">信号</div>
+                                <div style="font-size: 24px; font-weight: 700; color: ${signalColor};">${signalText}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">信心度</div>
+                                <div style="font-size: 24px; font-weight: 700;">${result.confidence}%</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">分析理由</div>
+                            <div style="padding: 16px; background: var(--bg-card); border-radius: 8px; white-space: pre-wrap; line-height: 1.6;">${result.reasoning || '无'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         // 添加股票
@@ -541,102 +1517,50 @@
             }
         }
 
-        // 收集表单数据
-        function collectFormData() {
-            const config = {
-                tdx_api_url: document.getElementById('tdx_api_url').value,
-                ai_config: {
-                    provider: document.getElementById('ai_provider').value,
-                    deepseek_key: document.getElementById('deepseek_key').value,
-                    qwen_key: document.getElementById('qwen_key').value,
-                    custom_api_url: document.getElementById('custom_api_url').value,
-                    custom_api_key: document.getElementById('custom_api_key').value,
-                    custom_model_name: document.getElementById('custom_model_name').value
-                },
-                stocks: [],
-                notification: {
-                    enabled: document.getElementById('notification_enabled').checked,
-                    dingtalk: {
-                        enabled: document.getElementById('dingtalk_enabled').checked,
-                        webhook_url: document.getElementById('dingtalk_webhook').value,
-                        secret: document.getElementById('dingtalk_secret').value
-                    },
-                    feishu: {
-                        enabled: document.getElementById('feishu_enabled').checked,
-                        webhook_url: document.getElementById('feishu_webhook').value,
-                        secret: document.getElementById('feishu_secret').value
-                    }
-                },
-                trading_time: {
-                    enable_check: document.getElementById('trading_time_enable').checked,
-                    trading_hours: JSON.parse(document.getElementById('trading_hours').value || '["09:30-11:30", "13:00-15:00"]'),
-                    timezone: document.getElementById('timezone').value
-                },
-                api_server_port: parseInt(document.getElementById('api_server_port').value) || 9090,
-                log_dir: document.getElementById('log_dir').value
-            };
-
-            // 收集股票数据
-            const stockCodes = document.querySelectorAll('.stock-code');
-            stockCodes.forEach((input, index) => {
-                config.stocks.push({
-                    code: input.value,
-                    name: document.querySelector(`.stock-name[data-index="${index}"]`).value,
-                    enabled: document.querySelector(`.stock-enabled[data-index="${index}"]`).checked,
-                    scan_interval_minutes: parseInt(document.querySelector(`.stock-interval[data-index="${index}"]`).value) || 5,
-                    min_confidence: parseInt(document.querySelector(`.stock-confidence[data-index="${index}"]`).value) || 70
-                });
-            });
-
-            return config;
-        }
-
         // 保存配置
         async function saveConfig() {
+            // 收集系统配置
             const config = collectFormData();
 
-            // 验证配置
             if (!config.tdx_api_url) {
                 showAlert('error', 'TDX API地址不能为空');
                 return;
             }
 
-            if (config.stocks.length === 0) {
-                showAlert('error', '至少需要配置一只股票');
-                return;
-            }
-
-            // 验证股票代码和名称
-            for (let i = 0; i < config.stocks.length; i++) {
-                if (!config.stocks[i].code) {
-                    showAlert('error', `股票 #${i + 1} 的代码不能为空`);
-                    return;
+            // 保留已有的股票配置和通知配置（如果存在）
+            if (currentConfig) {
+                if (currentConfig.stocks && currentConfig.stocks.length > 0) {
+                    config.stocks = currentConfig.stocks;
                 }
-                if (!config.stocks[i].name) {
-                    showAlert('error', `股票 #${i + 1} 的名称不能为空`);
-                    return;
+                if (currentConfig.notification) {
+                    config.notification = currentConfig.notification;
                 }
             }
 
-            // 验证AI配置
-            if (config.ai_config.provider === 'deepseek' && !config.ai_config.deepseek_key) {
-                showAlert('error', 'DeepSeek API密钥不能为空');
-                return;
-            }
-            if (config.ai_config.provider === 'qwen' && !config.ai_config.qwen_key) {
-                showAlert('error', 'Qwen API密钥不能为空');
-                return;
-            }
-            if (config.ai_config.provider === 'custom') {
-                if (!config.ai_config.custom_api_url || !config.ai_config.custom_api_key || !config.ai_config.custom_model_name) {
-                    showAlert('error', '自定义API配置不完整');
-                    return;
-                }
+            // 如果没有股票配置，至少保留一个空数组（避免验证失败）
+            if (!config.stocks || config.stocks.length === 0) {
+                config.stocks = [];
             }
 
-            // 发送保存请求
+            // 如果没有通知配置，创建默认配置
+            if (!config.notification) {
+                config.notification = {
+                    enabled: false,
+                    dingtalk: {
+                        enabled: false,
+                        webhook_url: "",
+                        secret: ""
+                    },
+                    feishu: {
+                        enabled: false,
+                        webhook_url: "",
+                        secret: ""
+                    }
+                };
+            }
+
             try {
-                const button = document.querySelector('.btn-save');
+                const button = event.target;
                 button.disabled = true;
                 button.textContent = '⏳ 保存中...';
 
@@ -651,8 +1575,24 @@
                 const result = await response.json();
 
                 if (result.code === 0) {
-                    showAlert('success', result.message);
+                    showAlert('success', '✅ 配置已保存！⚠️ 请重启后端服务使配置生效。');
                     currentConfig = config;
+                    
+                    // 显示重启提示
+                    setTimeout(() => {
+                        const restartHint = document.createElement('div');
+                        restartHint.className = 'alert alert-warning';
+                        restartHint.style.marginTop = '10px';
+                        restartHint.innerHTML = `
+                            <strong>📋 重启说明：</strong><br>
+                            配置已保存到文件，但需要重启后端服务才能生效。<br>
+                            <small>• 股票列表变更（添加/删除/修改）需要重启<br>
+                            • AI配置变更（API密钥、模型）需要重启<br>
+                            • TDX API地址变更需要重启<br>
+                            • 其他配置变更也需要重启</small>
+                        `;
+                        document.getElementById('alertContainer').appendChild(restartHint);
+                    }, 500);
                 } else {
                     showAlert('error', '保存失败: ' + result.message);
                 }
@@ -661,9 +1601,306 @@
                 button.textContent = '💾 保存配置';
             } catch (error) {
                 showAlert('error', '保存失败: ' + error.message);
-                const button = document.querySelector('.btn-save');
-                button.disabled = false;
-                button.textContent = '💾 保存配置';
+            }
+        }
+
+        // 保存股票配置
+        async function saveStockConfig() {
+            // 收集系统配置
+            const config = collectFormData();
+            // 收集股票数据
+            config.stocks = collectStockData();
+            
+            // 保留已有的通知配置（如果存在）
+            if (currentConfig && currentConfig.notification) {
+                config.notification = currentConfig.notification;
+            } else if (!config.notification) {
+                // 如果没有通知配置，创建默认配置
+                config.notification = {
+                    enabled: false,
+                    dingtalk: {
+                        enabled: false,
+                        webhook_url: "",
+                        secret: ""
+                    },
+                    feishu: {
+                        enabled: false,
+                        webhook_url: "",
+                        secret: ""
+                    }
+                };
+            }
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+                if (result.code === 0) {
+                    showAlert('success', '✅ 股票配置已保存！⚠️ 请重启后端服务使配置生效。');
+                    currentConfig = config;
+                } else {
+                    showAlert('error', '保存失败: ' + result.message);
+                }
+            } catch (error) {
+                showAlert('error', '保存失败: ' + error.message);
+            }
+        }
+
+        // 保存通知配置
+        async function saveNotificationConfig() {
+            // 收集系统配置
+            const config = collectFormData();
+            // 收集通知数据
+            config.notification = collectNotificationData();
+            
+            // 保留已有的股票配置（如果存在）
+            if (currentConfig && currentConfig.stocks && currentConfig.stocks.length > 0) {
+                config.stocks = currentConfig.stocks;
+            } else if (!config.stocks || config.stocks.length === 0) {
+                // 如果没有股票配置，至少保留一个空数组（避免验证失败）
+                config.stocks = [];
+            }
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+                if (result.code === 0) {
+                    showAlert('success', '✅ 通知配置已保存！⚠️ 请重启后端服务使配置生效。');
+                    currentConfig = config;
+                } else {
+                    showAlert('error', '保存失败: ' + result.message);
+                }
+            } catch (error) {
+                showAlert('error', '保存失败: ' + error.message);
+            }
+        }
+
+        // 收集表单数据
+        function collectFormData() {
+            return {
+                tdx_api_url: document.getElementById('tdx_api_url').value,
+                ai_config: {
+                    provider: document.getElementById('ai_provider').value,
+                    deepseek_key: document.getElementById('deepseek_key').value,
+                    qwen_key: document.getElementById('qwen_key').value,
+                    custom_api_url: document.getElementById('custom_api_url').value,
+                    custom_api_key: document.getElementById('custom_api_key').value,
+                    custom_model_name: document.getElementById('custom_model_name').value
+                },
+                trading_time: {
+                    enable_check: document.getElementById('trading_time_enable').checked,
+                    trading_hours: JSON.parse(document.getElementById('trading_hours').value || '["09:30-11:30", "13:00-15:00"]'),
+                    timezone: document.getElementById('timezone').value
+                },
+                api_server_port: parseInt(document.getElementById('api_server_port').value) || 9090,
+                log_dir: document.getElementById('log_dir').value || 'stock_analysis_logs',
+                analysis_history_limit: parseInt(document.getElementById('analysis_history_limit').value) || 20,
+                // API Token处理：如果输入框值包含*（隐藏显示），使用currentConfig中的值；否则使用新值
+                api_token: (() => {
+                    const inputValue = document.getElementById('api_token').value;
+                    // 如果输入框值是隐藏显示的（包含*），使用原有配置
+                    if (inputValue.includes('*') && currentConfig && currentConfig.api_token) {
+                        return currentConfig.api_token;
+                    }
+                    // 如果输入框是新值，使用新值；如果为空，使用默认值
+                    return inputValue.trim() !== '' ? inputValue : (currentConfig?.api_token || '1122334455667788');
+                })()
+            };
+        }
+
+        // 重启后端服务
+        async function restartBackend() {
+            // 确认操作
+            if (!confirm('⚠️ 确定要重启后端服务吗？\n\n重启后：\n- 当前所有分析器将停止\n- 配置将重新加载\n- 服务将在3秒后自动重启\n- 页面将在5秒后自动刷新\n\n注意：如果使用 manage_backend.sh 启动，将自动重启；否则请手动重启服务\n\n继续吗？')) {
+                return;
+            }
+
+            try {
+                // 获取API Token（优先从localStorage读取真实Token，如果不存在则从输入框读取）
+                let apiToken = '';
+                if (typeof(Storage) !== "undefined") {
+                    apiToken = localStorage.getItem('api_token_real');
+                }
+                // 如果localStorage中没有，从输入框读取（可能是新设置的）
+                if (!apiToken) {
+                    apiToken = document.getElementById('api_token').value;
+                    // 如果输入框的值包含*号（表示是隐藏显示），尝试从currentConfig读取
+                    if (apiToken.includes('*') && currentConfig && currentConfig.api_token) {
+                        apiToken = currentConfig.api_token;
+                    }
+                }
+                
+                if (!apiToken || apiToken.trim() === '') {
+                    showAlert('error', '❌ 请先配置API Token。可在系统配置页面的"API Token"字段中设置。\n\n注意：如果Token显示为****，请在保存配置后重新加载页面，或直接在配置文件中设置api_token字段。');
+                    return;
+                }
+
+                showAlert('info', '⏳ 正在重启后端服务，请稍候...');
+
+                const response = await fetch('/api/system/restart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Token': apiToken
+                    },
+                    body: JSON.stringify({
+                        token: apiToken
+                    })
+                });
+
+                // 检查响应状态
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('API路由不存在。请确保后端已重新编译并重启以应用最新代码。');
+                    } else if (response.status === 401 || response.status === 403) {
+                        throw new Error('Token验证失败，请检查API Token是否正确。');
+                    } else {
+                        throw new Error(`HTTP错误: ${response.status} ${response.statusText}`);
+                    }
+                }
+
+                // 获取响应内容类型
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`服务器返回了非JSON格式的响应: ${text.substring(0, 100)}`);
+                }
+
+                const result = await response.json();
+
+                if (result.code === 0) {
+                    showAlert('success', '✅ ' + result.message + '\n\n页面将在5秒后自动刷新...');
+                    // 等待5秒后刷新页面
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 5000);
+                } else {
+                    showAlert('error', '❌ 重启失败: ' + (result.message || '未知错误'));
+                }
+            } catch (error) {
+                console.error('重启请求失败:', error);
+                let errorMsg = error.message || '未知错误';
+                
+                // 如果是JSON解析错误，提供更友好的提示
+                if (errorMsg.includes('JSON') || errorMsg.includes('Unexpected')) {
+                    errorMsg = '服务器响应格式错误。可能是：\n1. 后端版本过旧，请重新编译并重启\n2. 服务正在重启中，请稍候再试';
+                }
+                
+                showAlert('error', '❌ 重启请求失败: ' + errorMsg + '\n\n提示：\n- 如果返回404错误，请确保后端已重新编译并重启\n- 如果服务正在重启，请等待几秒后刷新页面');
+                
+                // 如果是404错误，不自动刷新，让用户手动刷新
+                if (errorMsg.includes('404') || errorMsg.includes('路由不存在')) {
+                    setTimeout(() => {
+                        if (confirm('⚠️ API路由不存在，可能是后端版本过旧。\n\n请先重新编译后端代码：\ngo build -o stock_analyzer main_stock.go\n\n然后重启后端服务。\n\n是否现在刷新页面？')) {
+                            window.location.reload();
+                        }
+                    }, 2000);
+                } else {
+                    // 如果连接失败，可能是服务正在重启，等待后刷新
+                    setTimeout(() => {
+                        if (confirm('连接已断开，服务可能正在重启。是否刷新页面？')) {
+                            window.location.reload();
+                        }
+                    }, 3000);
+                }
+            }
+        }
+
+        // 收集股票数据
+        function collectStockData() {
+            const stocks = [];
+            const stockCodes = document.querySelectorAll('.stock-code');
+            
+            stockCodes.forEach((input, index) => {
+                const stock = {
+                    code: input.value,
+                    name: document.querySelector(`.stock-name[data-index="${index}"]`).value,
+                    enabled: document.querySelector(`.stock-enabled[data-index="${index}"]`).checked,
+                    scan_interval_minutes: parseInt(document.querySelector(`.stock-interval[data-index="${index}"]`).value) || 5,
+                    min_confidence: parseInt(document.querySelector(`.stock-confidence[data-index="${index}"]`).value) || 70
+                };
+                
+                const quantityInput = document.querySelector(`.stock-position-quantity[data-index="${index}"]`);
+                const priceInput = document.querySelector(`.stock-buy-price[data-index="${index}"]`);
+                const buyDateInput = document.querySelector(`.stock-buy-date[data-index="${index}"]`);
+                
+                if (quantityInput && priceInput && quantityInput.value && priceInput.value) {
+                    stock.position_quantity = parseInt(quantityInput.value);
+                    stock.buy_price = parseFloat(priceInput.value);
+                    if (buyDateInput && buyDateInput.value) {
+                        stock.buy_date = buyDateInput.value;
+                    }
+                }
+                
+                stocks.push(stock);
+            });
+            
+            return stocks;
+        }
+
+        // 收集通知数据
+        function collectNotificationData() {
+            return {
+                enabled: document.getElementById('notification_enabled').checked,
+                dingtalk: {
+                    enabled: document.getElementById('dingtalk_enabled').checked,
+                    webhook_url: document.getElementById('dingtalk_webhook').value,
+                    secret: document.getElementById('dingtalk_secret').value
+                },
+                feishu: {
+                    enabled: document.getElementById('feishu_enabled').checked,
+                    webhook_url: document.getElementById('feishu_webhook').value,
+                    secret: document.getElementById('feishu_secret').value
+                }
+            };
+        }
+
+        // 加载股票列表
+        async function loadStocks() {
+            const loadingEl = document.getElementById('loadingContainerStocks');
+            const containerEl = document.getElementById('stocksContainer');
+            
+            try {
+                if (loadingEl) loadingEl.style.display = 'block';
+                if (containerEl) containerEl.style.display = 'none';
+
+                if (!currentConfig) {
+                    await loadConfig();
+                }
+
+                if (currentConfig && currentConfig.stocks && currentConfig.stocks.length > 0) {
+                    renderStockList(currentConfig.stocks);
+                } else {
+                    // 如果没有股票配置，显示空列表，允许添加
+                    if (currentConfig && !currentConfig.stocks) {
+                        currentConfig.stocks = [];
+                    }
+                    renderStockList(currentConfig?.stocks || []);
+                }
+                
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (containerEl) containerEl.style.display = 'block';
+            } catch (error) {
+                console.error('加载股票列表失败:', error);
+                showAlert('error', '加载股票列表失败: ' + error.message);
+                // 即使加载失败，也显示界面允许用户操作
+                if (loadingEl) loadingEl.style.display = 'none';
+                if (containerEl) containerEl.style.display = 'block';
+                // 显示空列表
+                renderStockList([]);
             }
         }
 
@@ -676,17 +1913,14 @@
             container.innerHTML = '';
             container.appendChild(alert);
 
-            // 3秒后自动消失
             setTimeout(() => {
                 alert.style.opacity = '0';
                 alert.style.transition = 'opacity 0.5s';
                 setTimeout(() => alert.remove(), 500);
             }, 3000);
 
-            // 滚动到顶部
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     </script>
 </body>
 </html>
-

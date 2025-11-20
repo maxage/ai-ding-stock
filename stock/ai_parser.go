@@ -16,6 +16,10 @@ type AIDecisionResponse struct {
 	TargetPrice float64 `json:"target_price"` // 目标价格
 	StopLoss    float64 `json:"stop_loss"`    // 止损价格
 	RiskReward  string  `json:"risk_reward"`  // 风险回报比
+	
+	// 新增：持仓止盈止损价格（持仓模式下有效）
+	PositionProfitTarget float64 `json:"position_profit_target"` // 持仓止盈价
+	PositionStopLoss     float64 `json:"position_stop_loss"`     // 持仓止损价
 }
 
 // ParseAIResponse 解析AI响应，提取JSON决策
@@ -87,17 +91,21 @@ func ParseAIResponse(response string) (*AIDecisionResponse, error) {
 // ConvertToAnalysisResult 将AI决策转换为分析结果
 func ConvertToAnalysisResult(aiDecision *AIDecisionResponse, stockCode, stockName string, currentPrice float64, technical map[string]interface{}) *AnalysisResult {
 	return &AnalysisResult{
-		StockCode:     stockCode,
-		StockName:     stockName,
-		CurrentPrice:  currentPrice,
-		Signal:        aiDecision.Signal,
-		Confidence:    aiDecision.Confidence,
-		Reasoning:     aiDecision.Reasoning,
-		TargetPrice:   aiDecision.TargetPrice,
-		StopLoss:      aiDecision.StopLoss,
-		RiskReward:    aiDecision.RiskReward,
-		TechnicalData: technical,
-		Timestamp:     time.Now(),
+		StockCode:          stockCode,
+		StockName:          stockName,
+		CurrentPrice:       currentPrice,
+		Signal:             aiDecision.Signal,
+		Confidence:         aiDecision.Confidence,
+		Reasoning:          aiDecision.Reasoning,
+		TargetPrice:        aiDecision.TargetPrice,
+		StopLoss:           aiDecision.StopLoss,
+		RiskReward:         aiDecision.RiskReward,
+		TechnicalData:      technical,
+		Timestamp:          time.Now(),
+		
+		// 新增：持仓止盈止损价格
+		PositionProfitTarget: aiDecision.PositionProfitTarget,
+		PositionStopLoss:     aiDecision.PositionStopLoss,
 	}
 }
 

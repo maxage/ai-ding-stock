@@ -38,7 +38,7 @@ FROM alpine:3.19
 # 配置国内镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
     apk update && \
-    apk add --no-cache ca-certificates tzdata
+    apk add --no-cache ca-certificates tzdata wget jq
 
 # 设置时区
 ENV TZ=Asia/Shanghai
@@ -62,7 +62,7 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # 创建必要的目录和示例配置文件
 RUN mkdir -p /app/stock_analysis_logs && \
-    echo '{"tdx_api_url":"http://192.168.1.222:8181","ai_config":{"provider":"deepseek","deepseek_key":"","qwen_key":"","custom_api_url":"","custom_api_key":"","custom_model_name":""},"stocks":[],"notification":{"enabled":false,"dingtalk":{"enabled":false,"webhook_url":"","secret":""},"feishu":{"enabled":false,"webhook_url":"","secret":""}},"trading_time":{"enable_check":true,"trading_hours":["09:30-11:30","13:00-15:00"],"timezone":"Asia/Shanghai"},"api_server_port":9090,"log_dir":"stock_analysis_logs"}' > /app/config_stock.json.example && \
+    echo '{"tdx_api_url":"http://192.168.1.222:8181","ai_config":{"provider":"deepseek","deepseek_key":"","qwen_key":"","custom_api_url":"","custom_api_key":"","custom_model_name":""},"stocks":[],"notification":{"enabled":false,"dingtalk":{"enabled":false,"webhook_url":"","secret":""},"feishu":{"enabled":false,"webhook_url":"","secret":""}},"trading_time":{"enable_check":true,"trading_hours":["09:30-11:30","13:00-15:00"],"timezone":"Asia/Shanghai"},"api_server_port":9090,"log_dir":"stock_analysis_logs","api_token":""}' > /app/config_stock.json.example && \
     chmod +x /app/docker-entrypoint.sh && \
     chown -R stockapp:stockapp /app
 

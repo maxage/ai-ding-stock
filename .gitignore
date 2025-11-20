@@ -1,39 +1,200 @@
-# IDE 配置文件
-.idea/
-*.iml
-*.xml
+# ========================================
+# .gitignore - Git 忽略文件配置
+# ========================================
+# 说明：标记为 "需要同步" 的文件/目录应该提交到 GitHub
+#       标记为 "不需要同步" 的文件/目录不会提交到 GitHub
+# ========================================
 
-# 编译产物
-nofx-auto
+# ========================================
+# ❌ 不需要同步：本地编译产物
+# ========================================
+# Go 编译生成的可执行文件
+stock_analyzer
+stock_analyzer.exe
 *.exe
+
+# 旧的编译产物（如果有）
+nofx-auto
 nofx
 nofx_test
 
-# Go 相关
+# Go 测试和编译临时文件
 *.test
 *.out
+*.a
+*.so
+*.dll
+*.dylib
 
-# 操作系统
-.DS_Store
-Thumbs.db
+# ========================================
+# ❌ 不需要同步：配置文件（包含敏感信息）
+# ========================================
+# 实际配置文件（包含API密钥、Token等敏感信息）
+config_stock.json
+config.json
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# ========================================
+# ❌ 不需要同步：日志和运行时文件
+# ========================================
+# 日志目录（配置文件中的 log_dir）
+stock_analysis_logs/
+logs/
+
+# 日志文件
+*.log
+*.log.*
+
+# 进程ID文件
+*.pid
+
+# 运行时临时文件
+/tmp/
+/var/
+
+# ========================================
+# ❌ 不需要同步：备份和临时文件
+# ========================================
+# 备份文件
+*.backup
+*.bak
+*.old
+config_stock.json.backup.*
 
 # 临时文件
-*.log
 *.tmp
-*.bak
-*.backup
+*.temp
+*.swp
+*.swo
+*.swn
+*~
+.#*
 
-# 环境变量
-.env
-config.json
-config_stock.json
-# 决策日志
+# ========================================
+# ❌ 不需要同步：IDE 和编辑器配置
+# ========================================
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ========================================
+# ❌ 不需要同步：操作系统生成的文件
+# ========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+
+# ========================================
+# ❌ 不需要同步：Node.js 相关（如果有前端构建）
+# ========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.pnpm-debug.log*
+
+# 前端构建产物
+web/node_modules/
+web/dist/
+web/build/
+web/.vite/
+web/.next/
+web/.nuxt/
+web/.output/
+
+# ========================================
+# ❌ 不需要同步：测试和覆盖率文件
+# ========================================
+# 测试覆盖率
+coverage/
+*.cover
+*.coverprofile
+coverage.html
+
+# Go 测试缓存
+.testcache/
+
+# ========================================
+# ❌ 不需要同步：旧的或不需要的目录
+# ========================================
+# 旧的日志和缓存目录
 decision_logs/
 coin_pool_cache/
-nofx_test
 
-# Node.js
-web/node_modules/
-node_modules/
-web/dist/
-web/.vite/
+# ========================================
+# ✅ 需要同步到 GitHub 的文件示例（已排除，不要提交）
+# ========================================
+# 以下文件/目录应该提交到 GitHub：
+# - *.go (Go 源代码)
+# - go.mod, go.sum (Go 依赖管理)
+# - Dockerfile, docker-compose.yml (Docker 配置)
+# - README.md (文档)
+# - config_stock.json.example (配置示例)
+# - .github/ (GitHub Actions 工作流)
+# - web/config.html (Web 前端)
+# - *.sh, *.bat (脚本文件)
+# - doc/ (文档目录)
+# - nginx.conf (Nginx 配置)
+# - env.example (环境变量示例)
+
+# ========================================
+# 注意事项
+# ========================================
+# 1. config_stock.json 不应提交（包含敏感信息），但 config_stock.json.example 应该提交
+# 2. 所有编译产物（stock_analyzer, *.exe）不应提交
+# 3. 日志目录和文件不应提交
+# 4. IDE 配置文件是个人偏好，不应提交
+# 5. 环境变量文件（.env）不应提交，但 .env.example 应该提交

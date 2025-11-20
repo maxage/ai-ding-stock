@@ -305,6 +305,38 @@
             gap: 16px;
         }
 
+        /* 折叠/展开功能 */
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.3s ease;
+        }
+        
+        .collapsible:hover {
+            opacity: 0.8;
+        }
+        
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .collapsible-content.expanded {
+            max-height: 5000px;
+            transition: max-height 0.5s ease-in;
+        }
+        
+        .collapse-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+            margin-right: 8px;
+        }
+        
+        .collapse-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
         /* 股票列表 */
         .stock-list {
             display: grid;
@@ -556,7 +588,6 @@
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="font-size: 13px; color: var(--text-secondary);" id="currentTime"></span>
-                <button class="btn btn-test" onclick="runFullTest()">🧪 立即测试</button>
             </div>
         </div>
 
@@ -634,21 +665,30 @@
             <div id="configContainer" style="display: none;">
                 <!-- TDX API配置 -->
                 <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">📡 TDX API配置</div>
+                    <div class="card-header collapsible" onclick="toggleConfigCollapse('tdx-api')">
+                        <div class="card-title">
+                            <span class="collapse-icon expanded" id="icon-tdx-api">▶</span>
+                            📡 TDX API配置
+                        </div>
                     </div>
+                    <div class="collapsible-content expanded" id="content-tdx-api">
                     <div class="form-group">
                         <label for="tdx_api_url">TDX API地址</label>
                         <input type="text" id="tdx_api_url" placeholder="http://192.168.1.222:8181">
                         <small>通达信股票数据API服务地址</small>
                     </div>
+                    </div>
                 </div>
 
                 <!-- AI配置 -->
                 <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">🤖 AI模型配置</div>
+                    <div class="card-header collapsible" onclick="toggleConfigCollapse('ai-config')">
+                        <div class="card-title">
+                            <span class="collapse-icon expanded" id="icon-ai-config">▶</span>
+                            🤖 AI模型配置
+                        </div>
                     </div>
+                    <div class="collapsible-content expanded" id="content-ai-config">
                     <div class="form-group">
                         <label for="ai_provider">AI提供商</label>
                         <select id="ai_provider" onchange="toggleAIConfig()">
@@ -687,13 +727,18 @@
                             <small>例如: gpt-4o, claude-3-5-sonnet-20241022</small>
                         </div>
                     </div>
+                    </div>
                 </div>
 
                 <!-- 交易时间配置 -->
                 <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">⏰ 交易时间配置</div>
+                    <div class="card-header collapsible" onclick="toggleConfigCollapse('trading-time')">
+                        <div class="card-title">
+                            <span class="collapse-icon expanded" id="icon-trading-time">▶</span>
+                            ⏰ 交易时间配置
+                        </div>
                     </div>
+                    <div class="collapsible-content expanded" id="content-trading-time">
                     <div class="form-group checkbox-group">
                         <input type="checkbox" id="trading_time_enable">
                         <label for="trading_time_enable">启用交易时间检查</label>
@@ -708,13 +753,18 @@
                         <label for="timezone">时区</label>
                         <input type="text" id="timezone" placeholder="Asia/Shanghai">
                     </div>
+                    </div>
                 </div>
 
                 <!-- 系统配置 -->
                 <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">🔧 系统配置</div>
+                    <div class="card-header collapsible" onclick="toggleConfigCollapse('system-config')">
+                        <div class="card-title">
+                            <span class="collapse-icon expanded" id="icon-system-config">▶</span>
+                            🔧 系统配置
+                        </div>
                     </div>
+                    <div class="collapsible-content expanded" id="content-system-config">
                     <div class="grid-2">
                         <div class="form-group">
                             <label for="api_server_port">API服务端口</label>
@@ -734,6 +784,21 @@
                         <label for="analysis_history_limit">分析历史记录数量</label>
                         <input type="number" id="analysis_history_limit" min="3" max="100" placeholder="20">
                         <small>每个股票最多保存的分析记录数。范围：3-100条，默认20条。系统概览中只显示3条，其余可通过滚动条查看。</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="analysis_mode">分析模式</label>
+                        <select id="analysis_mode">
+                            <option value="smart">智能模式（推荐）</option>
+                            <option value="concurrent">并发模式</option>
+                            <option value="polling">轮询模式</option>
+                        </select>
+                        <small>智能模式：根据股票数量自动选择最佳策略（≤4个并发，>4个轮询）</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="max_concurrent_analysis">最大并发分析数</label>
+                        <input type="number" id="max_concurrent_analysis" min="1" max="4" placeholder="3">
+                        <small>并发模式下同时分析的股票数量。范围：1-4，默认3。建议不超过4以避免触发AI模型的RPM/TPM限制。</small>
+                    </div>
                     </div>
                 </div>
 
@@ -1208,6 +1273,8 @@
             document.getElementById('api_server_port').value = config.api_server_port || 9090;
             document.getElementById('log_dir').value = config.log_dir || 'stock_analysis_logs';
             document.getElementById('analysis_history_limit').value = config.analysis_history_limit || 20;
+            document.getElementById('analysis_mode').value = config.analysis_mode || 'smart';
+            document.getElementById('max_concurrent_analysis').value = config.max_concurrent_analysis || 3;
             
             // API Token（显示时隐藏真实值，只显示部分）
             if (config.api_token && config.api_token.trim() !== '') {
@@ -1294,11 +1361,16 @@
             stocks.forEach((stock, index) => {
                 const stockItem = document.createElement('div');
                 stockItem.className = 'stock-item';
+                const stockId = `stock-${index}`;
                 stockItem.innerHTML = `
-                    <div class="stock-item-header">
-                        <div class="stock-item-title">股票 #${index + 1} - ${stock.name || stock.code}</div>
-                        <button class="btn btn-danger" onclick="removeStock(${index})">删除</button>
+                    <div class="stock-item-header collapsible" onclick="toggleStockCollapse('${stockId}')">
+                        <div class="stock-item-title">
+                            <span class="collapse-icon" id="icon-${stockId}">▶</span>
+                            股票 #${index + 1} - ${stock.name || stock.code} - ${stock.code || ''}
+                        </div>
+                        <button class="btn btn-danger" onclick="event.stopPropagation(); removeStock(${index})">删除</button>
                     </div>
+                    <div class="collapsible-content expanded" id="content-${stockId}">
                     <div class="grid-2">
                         <div class="form-group">
                             <label>股票代码</label>
@@ -1341,6 +1413,7 @@
                             <input type="date" class="stock-buy-date" data-index="${index}" value="${stock.buy_date || ''}">
                             <small>购买日期，用于计算持仓天数</small>
                         </div>
+                    </div>
                     </div>
                 `;
                 container.appendChild(stockItem);
@@ -1708,6 +1781,8 @@
                 api_server_port: parseInt(document.getElementById('api_server_port').value) || 9090,
                 log_dir: document.getElementById('log_dir').value || 'stock_analysis_logs',
                 analysis_history_limit: parseInt(document.getElementById('analysis_history_limit').value) || 20,
+                analysis_mode: document.getElementById('analysis_mode').value || 'smart',
+                max_concurrent_analysis: parseInt(document.getElementById('max_concurrent_analysis').value) || 3,
                 // API Token处理：如果输入框值包含*（隐藏显示），使用currentConfig中的值；否则使用新值
                 api_token: (() => {
                     const inputValue = document.getElementById('api_token').value;

@@ -19,6 +19,8 @@ type StockConfig struct {
 	LogDir             string `json:"log_dir"`
 	APIToken           string `json:"api_token,omitempty"`           // API认证Token，用于前端重启后端等功能。默认：1122334455667788（为了安全，强烈建议修改！）
 	AnalysisHistoryLimit int  `json:"analysis_history_limit"`       // 分析历史记录数量（最小3条，最大100条，默认20条）
+	AnalysisMode        string `json:"analysis_mode,omitempty"`      // 分析模式："smart"（智能模式，推荐）、"concurrent"（并发模式）、"polling"（轮询模式），默认："smart"
+	MaxConcurrentAnalysis int  `json:"max_concurrent_analysis,omitempty"` // 最大并发分析数（1-4，默认3），仅并发模式和智能模式有效
 }
 
 // TradingTimeConfig 交易时间配置
@@ -184,6 +186,23 @@ func (c *StockConfig) Validate() error {
 		c.AnalysisHistoryLimit = 3 // 最小3条
 	} else if c.AnalysisHistoryLimit > 100 {
 		c.AnalysisHistoryLimit = 100 // 最大100条
+	}
+
+	// 设置默认分析模式
+	if c.AnalysisMode == "" {
+		c.AnalysisMode = "smart" // 默认智能模式
+	} else if c.AnalysisMode != "smart" && c.AnalysisMode != "concurrent" && c.AnalysisMode != "polling" {
+		log.Printf("⚠️  无效的分析模式 '%s'，将使用默认模式 'smart'", c.AnalysisMode)
+		c.AnalysisMode = "smart"
+	}
+
+	// 设置默认最大并发分析数
+	if c.MaxConcurrentAnalysis <= 0 {
+		c.MaxConcurrentAnalysis = 3 // 默认3个并发
+	} else if c.MaxConcurrentAnalysis < 1 {
+		c.MaxConcurrentAnalysis = 1 // 最小1个
+	} else if c.MaxConcurrentAnalysis > 4 {
+		c.MaxConcurrentAnalysis = 4 // 最大4个（避免触发AI模型的RPM/TPM限制）
 	}
 
 	// 设置默认交易时间配置

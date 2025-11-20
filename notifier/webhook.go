@@ -122,9 +122,10 @@ func (d *DingTalkNotifier) formatSignalMarkdown(signal *TradingSignal) string {
 	markdown += fmt.Sprintf("**1️⃣  核心指标**\n\n")
 	markdown += fmt.Sprintf("💰 **当前价格**: %.2f元\n\n", signal.Price)
 	markdown += fmt.Sprintf("📈 **信心度**: %d%%\n\n", signal.Confidence)
+	markdown += fmt.Sprintf("---\n\n")
 
 	// 2️⃣ 交易建议区域
-	if signal.TargetPrice > 0 || signal.StopLoss > 0 || signal.RiskReward != "" {
+	if signal.TargetPrice > 0 || signal.StopLoss > 0 || signal.RiskReward != "" || signal.PositionInfo != nil {
 		markdown += fmt.Sprintf("**2️⃣  交易建议**\n\n")
 		if signal.TargetPrice > 0 {
 			markdown += fmt.Sprintf("🎯 **目标价格**: %.2f元\n\n", signal.TargetPrice)
@@ -135,72 +136,73 @@ func (d *DingTalkNotifier) formatSignalMarkdown(signal *TradingSignal) string {
 		if signal.RiskReward != "" {
 			markdown += fmt.Sprintf("⚖️ **风险回报比**: %s\n\n", signal.RiskReward)
 		}
-	}
 
-	// 如果有持仓信息，添加到交易建议中
-	if signal.PositionInfo != nil {
-		if quantity, ok := signal.PositionInfo["quantity"].(int); ok && quantity > 0 {
-			markdown += fmt.Sprintf("📦 **持仓数量**: %d股\n\n", quantity)
-		}
-		if buyPrice, ok := signal.PositionInfo["buy_price"].(float64); ok && buyPrice > 0 {
-			markdown += fmt.Sprintf("💵 **购买价格**: %.2f元/股\n\n", buyPrice)
-		}
-		if currentPrice, ok := signal.PositionInfo["current_price"].(float64); ok && currentPrice > 0 {
-			markdown += fmt.Sprintf("💰 **持仓当前价格**: %.2f元/股\n\n", currentPrice)
-		}
-		if profitLoss, ok := signal.PositionInfo["profit_loss"].(float64); ok {
-			profitLossPercent := signal.PositionInfo["profit_loss_percent"].(float64)
-			profitEmoji := "📈"
-			sign := "+"
-			if profitLoss < 0 {
-				profitEmoji = "📉"
-				sign = ""
+		// 如果有持仓信息，添加到交易建议中
+		if signal.PositionInfo != nil {
+			if quantity, ok := signal.PositionInfo["quantity"].(int); ok && quantity > 0 {
+				markdown += fmt.Sprintf("📦 **持仓数量**: %d股\n\n", quantity)
 			}
-			markdown += fmt.Sprintf("%s **浮动盈亏**: %s%.2f元 (%.2f%%)\n\n", profitEmoji, sign, profitLoss, profitLossPercent)
-		}
-		
-		// 添加持仓止盈止损价格
-		if signal.PositionProfitTarget > 0 || signal.PositionStopLoss > 0 {
-			if signal.PositionProfitTarget > 0 {
-				markdown += fmt.Sprintf("📈 **持仓止盈价**: %.2f元\n\n", signal.PositionProfitTarget)
+			if buyPrice, ok := signal.PositionInfo["buy_price"].(float64); ok && buyPrice > 0 {
+				markdown += fmt.Sprintf("💵 **购买价格**: %.2f元/股\n\n", buyPrice)
 			}
-			if signal.PositionStopLoss > 0 {
-				markdown += fmt.Sprintf("📉 **持仓止损价**: %.2f元\n\n", signal.PositionStopLoss)
+			if currentPrice, ok := signal.PositionInfo["current_price"].(float64); ok && currentPrice > 0 {
+				markdown += fmt.Sprintf("💰 **持仓当前价格**: %.2f元/股\n\n", currentPrice)
+			}
+			if profitLoss, ok := signal.PositionInfo["profit_loss"].(float64); ok {
+				profitLossPercent := signal.PositionInfo["profit_loss_percent"].(float64)
+				profitEmoji := "📈"
+				sign := "+"
+				if profitLoss < 0 {
+					profitEmoji = "📉"
+					sign = ""
+				}
+				markdown += fmt.Sprintf("%s **浮动盈亏**: %s%.2f元 (%.2f%%)\n\n", profitEmoji, sign, profitLoss, profitLossPercent)
+			}
+			
+			// 添加持仓止盈止损价格
+			if signal.PositionProfitTarget > 0 || signal.PositionStopLoss > 0 {
+				if signal.PositionProfitTarget > 0 {
+					markdown += fmt.Sprintf("📈 **持仓止盈价**: %.2f元\n\n", signal.PositionProfitTarget)
+				}
+				if signal.PositionStopLoss > 0 {
+					markdown += fmt.Sprintf("📉 **持仓止损价**: %.2f元\n\n", signal.PositionStopLoss)
+				}
 			}
 		}
+		markdown += fmt.Sprintf("---\n\n")
 	}
 
 	// 3️⃣ 分析原因
 	markdown += fmt.Sprintf("**3️⃣  分析原因**\n\n")
 	markdown += fmt.Sprintf("%s\n\n", formatReasoning(signal.Reasoning))
+	markdown += fmt.Sprintf("---\n\n")
 
 	// 4️⃣ 分析时间和风险提示
 	markdown += fmt.Sprintf("**4️⃣  分析时间**  %s\n\n", signal.Timestamp.Format("2006-01-02 15:04:05"))
+	markdown += fmt.Sprintf("---\n\n")
 	markdown += fmt.Sprintf("‼️ **本分析仅供参考，投资有风险，决策需谨慎**")
 
 	return markdown
 }
 
-// formatReasoning 格式化分析原因，将编号列表项分行显示
+// formatReasoning 格式化分析原因，按句号换行显示
 func formatReasoning(reasoning string) string {
 	if reasoning == "" {
 		return reasoning
 	}
 
-	// 匹配模式：数字后跟中文右括号或英文右括号，例如：1）、2）、1)、2)
-	re := regexp.MustCompile(`(\d+)[）)]`)
+	// 按句号换行：在每个中文句号（。！？）后添加换行
+	// 这样可以避免破坏括号内的内容，如 RSI(14)、MA5(5.88元) 等
+	result := regexp.MustCompile(`([。！？])`).ReplaceAllString(reasoning, "$1\n\n")
 	
-	// 替换为换行格式：在编号前添加换行，在冒号/分号后添加换行（如果存在）
-	result := re.ReplaceAllStringFunc(reasoning, func(match string) string {
-		// 在匹配项前添加换行（如果不是文本开头）
-		return "\n\n" + match
-	})
-	
-	// 清理多余的空白行
+	// 清理多余的空白行（3个或更多换行符替换为2个）
 	result = regexp.MustCompile(`\n{3,}`).ReplaceAllString(result, "\n\n")
 	
 	// 如果开头有多余的换行，移除
 	result = strings.TrimLeft(result, "\n")
+	
+	// 移除结尾多余的换行
+	result = strings.TrimRight(result, "\n")
 	
 	return result
 }
@@ -350,11 +352,15 @@ func (f *FeishuNotifier) formatSignalRichText(signal *TradingSignal) map[string]
 					},
 				},
 			},
+			// 分割线
+			{
+				"tag": "hr",
+			},
 		},
 	}
 
 	// 2️⃣ 添加目标价格和止损
-	if signal.TargetPrice > 0 || signal.StopLoss > 0 || signal.RiskReward != "" {
+	if signal.TargetPrice > 0 || signal.StopLoss > 0 || signal.RiskReward != "" || signal.PositionInfo != nil {
 		// 添加标题
 		card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
 			"tag": "div",
@@ -402,6 +408,26 @@ func (f *FeishuNotifier) formatSignalRichText(signal *TradingSignal) map[string]
 
 	// 如果有持仓信息，添加到交易建议中
 	if signal.PositionInfo != nil {
+		// 如果还没有添加"2️⃣ 交易建议"标题，则添加
+		hasTitle := false
+		elements := card["elements"].([]map[string]interface{})
+		for _, elem := range elements {
+			if text, ok := elem["text"].(map[string]string); ok {
+				if content, ok := text["content"]; ok && content == "**2️⃣  交易建议**" {
+					hasTitle = true
+					break
+				}
+			}
+		}
+		if !hasTitle {
+			card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
+				"tag": "div",
+				"text": map[string]string{
+					"tag":     "lark_md",
+					"content": "**2️⃣  交易建议**",
+				},
+			})
+		}
 		
 		positionFields := []map[string]interface{}{}
 		
@@ -488,15 +514,14 @@ func (f *FeishuNotifier) formatSignalRichText(signal *TradingSignal) map[string]
 		}
 	}
 
-	// 添加分割线
-	card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
-		"tag": "hr",
-	})
+	// 如果有交易建议或持仓信息，添加分割线
+	if signal.TargetPrice > 0 || signal.StopLoss > 0 || signal.RiskReward != "" || signal.PositionInfo != nil {
+		card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
+			"tag": "hr",
+		})
+	}
 
 	// 3️⃣ 添加分析原因
-	card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
-		"tag": "hr",
-	})
 	card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
 		"tag": "div",
 		"text": map[string]string{
@@ -511,17 +536,22 @@ func (f *FeishuNotifier) formatSignalRichText(signal *TradingSignal) map[string]
 			"content": formatReasoning(signal.Reasoning),
 		},
 	})
-
-	// 4️⃣ 添加时间戳和风险提示
+	// 分割线
 	card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
 		"tag": "hr",
 	})
+
+	// 4️⃣ 添加时间戳和风险提示
 	card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
 		"tag": "div",
 		"text": map[string]string{
 			"tag":     "lark_md",
 			"content": fmt.Sprintf("**4️⃣  分析时间**  %s", signal.Timestamp.Format("2006-01-02 15:04:05")),
 		},
+	})
+	// 分割线
+	card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
+		"tag": "hr",
 	})
 	card["elements"] = append(card["elements"].([]map[string]interface{}), map[string]interface{}{
 		"tag": "note",

@@ -116,10 +116,13 @@ func main() {
 		maxHistorySize = 100
 	}
 	analyzerManager := &AnalyzerManager{
-		analyzers:       make(map[string]*stock.StockAnalyzer),
-		stopChans:       make(map[string]chan struct{}),
-		analysisHistory: make(map[string][]*stock.AnalysisResult),
-		maxHistorySize:  maxHistorySize, // 从配置文件读取，每个股票最多保存的分析记录数
+		analyzers:           make(map[string]*stock.StockAnalyzer),
+		stopChans:           make(map[string]chan struct{}),
+		analysisHistory:     make(map[string][]*stock.AnalysisResult),
+		maxHistorySize:      maxHistorySize,      // 从配置文件读取，每个股票最多保存的分析记录数
+		analysisMode:        cfg.AnalysisMode,    // 分析模式：smart/concurrent/polling
+		maxConcurrent:       cfg.MaxConcurrentAnalysis, // 最大并发分析数
+		stockCount:          len(enabledStocks),  // 启用的股票数量
 	}
 	log.Printf("✓ 分析历史记录配置: 每个股票最多保存 %d 条记录", maxHistorySize)
 
@@ -305,11 +308,15 @@ func parseBuyDate(dateStr string) time.Time {
 
 // AnalyzerManager 分析器管理器
 type AnalyzerManager struct {
-	analyzers     map[string]*stock.StockAnalyzer
-	stopChans     map[string]chan struct{}
-	analysisHistory map[string][]*stock.AnalysisResult // 存储最近的分析结果（每个股票代码对应一个结果列表）
-	maxHistorySize int                                  // 每个股票最多保存的分析记录数
-	mutex         sync.RWMutex
+	analyzers        map[string]*stock.StockAnalyzer
+	stopChans        map[string]chan struct{}
+	analysisHistory  map[string][]*stock.AnalysisResult // 存储最近的分析结果（每个股票代码对应一个结果列表）
+	maxHistorySize   int                                  // 每个股票最多保存的分析记录数
+	analysisMode     string                               // 分析模式：smart/concurrent/polling
+	maxConcurrent    int                                  // 最大并发分析数
+	stockCount       int                                  // 启用的股票数量
+	mutex            sync.RWMutex
+	semaphore        chan struct{}                        // 并发控制信号量（用于限制并发数）
 }
 
 // AddAnalyzer 添加分析器
@@ -437,6 +444,23 @@ func (m *AnalyzerManager) StartAll() {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
+	// 确定实际使用的分析模式和并发数
+	actualMode, actualMaxConcurrent := m.determineAnalysisMode()
+
+	log.Printf("📊 分析模式: %s，最大并发数: %d，股票总数: %d", actualMode, actualMaxConcurrent, m.stockCount)
+
+	// 初始化并发控制信号量
+	if actualMode == "concurrent" || actualMode == "smart" {
+		m.semaphore = make(chan struct{}, actualMaxConcurrent)
+	}
+
+	// 如果是轮询模式，使用轮询方式启动
+	if actualMode == "polling" {
+		m.startPollingMode()
+		return
+	}
+
+	// 并发模式或智能模式，使用并发方式启动
 	for code, analyzer := range m.analyzers {
 		stopChan := m.stopChans[code]
 		go func(code string, analyzer *stock.StockAnalyzer, stopChan chan struct{}) {
@@ -448,17 +472,13 @@ func (m *AnalyzerManager) StartAll() {
 				code,
 				analyzer.AnalysisConfig.ScanInterval)
 
-			// 立即执行一次分析
-			if result, err := analyzer.Analyze(); err == nil && result != nil {
-				m.saveAnalysisResult(code, result)
-			}
+			// 立即执行一次分析（带并发控制）
+			m.runAnalysisWithSemaphore(code, analyzer)
 
 			for {
 				select {
 				case <-ticker.C:
-					if result, err := analyzer.Analyze(); err == nil && result != nil {
-						m.saveAnalysisResult(code, result)
-					}
+					m.runAnalysisWithSemaphore(code, analyzer)
 				case <-stopChan:
 					log.Printf("⏹️  停止监控股票 %s", code)
 					return
@@ -466,6 +486,144 @@ func (m *AnalyzerManager) StartAll() {
 			}
 		}(code, analyzer, stopChan)
 	}
+}
+
+// determineAnalysisMode 确定实际使用的分析模式和并发数
+func (m *AnalyzerManager) determineAnalysisMode() (string, int) {
+	if m.analysisMode == "polling" {
+		return "polling", 1
+	}
+
+	if m.analysisMode == "concurrent" {
+		return "concurrent", m.maxConcurrent
+	}
+
+	// 智能模式：根据股票数量自动选择
+	if m.stockCount <= 4 {
+		// 股票数量 <= 4，使用并发，并发数 = 股票数（最多4个）
+		maxConcurrent := m.stockCount
+		if maxConcurrent > 4 {
+			maxConcurrent = 4
+		}
+		return "concurrent", maxConcurrent
+	}
+
+	// 股票数量 > 4，使用轮询模式
+	return "polling", 1
+}
+
+// runAnalysisWithSemaphore 带并发控制的分析执行
+func (m *AnalyzerManager) runAnalysisWithSemaphore(code string, analyzer *stock.StockAnalyzer) {
+	if m.semaphore == nil {
+		// 如果没有信号量（轮询模式），直接执行
+		if result, err := analyzer.Analyze(); err == nil && result != nil {
+			m.saveAnalysisResult(code, result)
+		}
+		return
+	}
+
+	// 获取信号量（控制并发数）
+	m.semaphore <- struct{}{}
+	defer func() { <-m.semaphore }()
+
+	if result, err := analyzer.Analyze(); err == nil && result != nil {
+		m.saveAnalysisResult(code, result)
+	}
+}
+
+// startPollingMode 启动轮询模式（顺序分析）
+func (m *AnalyzerManager) startPollingMode() {
+	// 收集所有分析器和对应的停止通道
+	type analyzerInfo struct {
+		code     string
+		analyzer *stock.StockAnalyzer
+		stopChan chan struct{}
+		interval time.Duration
+	}
+
+	var analyzers []analyzerInfo
+	for code, analyzer := range m.analyzers {
+		analyzers = append(analyzers, analyzerInfo{
+			code:     code,
+			analyzer: analyzer,
+			stopChan: m.stopChans[code],
+			interval: analyzer.AnalysisConfig.ScanInterval,
+		})
+		log.Printf("🚀 准备监控股票 %s，扫描间隔: %v", code, analyzer.AnalysisConfig.ScanInterval)
+	}
+
+	// 启动轮询协程（顺序分析）
+	go func() {
+		log.Printf("🔄 启动轮询模式，顺序分析 %d 只股票", len(analyzers))
+
+		// 立即执行一轮分析（顺序执行）
+		for _, info := range analyzers {
+			select {
+			case <-info.stopChan:
+				log.Printf("⏹️  停止监控股票 %s", info.code)
+				return
+			default:
+				log.Printf("📊 [轮询] 开始分析股票 %s", info.code)
+				if result, err := info.analyzer.Analyze(); err == nil && result != nil {
+					m.saveAnalysisResult(info.code, result)
+				}
+				log.Printf("✅ [轮询] 完成分析股票 %s", info.code)
+			}
+		}
+
+		// 记录每个股票的上次分析时间
+		lastAnalysis := make(map[string]time.Time)
+		for _, info := range analyzers {
+			lastAnalysis[info.code] = time.Now()
+		}
+
+		// 计算最短间隔（用于主循环）
+		minInterval := time.Minute * 5 // 默认5分钟
+		for _, info := range analyzers {
+			if info.interval < minInterval {
+				minInterval = info.interval
+			}
+		}
+
+		// 主轮询循环
+		ticker := time.NewTicker(minInterval / 4) // 每1/4间隔检查一次
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				// 检查每个股票是否需要分析
+				for i, info := range analyzers {
+					select {
+					case <-info.stopChan:
+						log.Printf("⏹️  停止监控股票 %s", info.code)
+						// 从列表中移除已停止的股票
+						analyzers = append(analyzers[:i], analyzers[i+1:]...)
+						delete(lastAnalysis, info.code)
+
+						// 如果所有股票都停止了，退出
+						if len(analyzers) == 0 {
+							log.Printf("⏹️  所有股票监控已停止")
+							return
+						}
+						goto nextCheck // 重新开始检查
+					default:
+						// 检查是否到了该股票的分析时间
+						if time.Since(lastAnalysis[info.code]) >= info.interval {
+							log.Printf("📊 [轮询] 开始分析股票 %s（第 %d/%d 只）", info.code, i+1, len(analyzers))
+							if result, err := info.analyzer.Analyze(); err == nil && result != nil {
+								m.saveAnalysisResult(info.code, result)
+							}
+							lastAnalysis[info.code] = time.Now()
+							log.Printf("✅ [轮询] 完成分析股票 %s", info.code)
+						}
+					}
+				}
+			nextCheck:
+				// 继续下一轮检查
+			}
+		}
+	}()
 }
 
 // StopAll 停止所有分析器

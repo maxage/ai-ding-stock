@@ -1,9 +1,12 @@
 services:
   # 股票分析后端服务
   stock-analyzer:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # 本地编译配置（已注释，改为使用远程镜像）
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    # 使用远程镜像（GitHub Container Registry）
+    image: ghcr.io/maxage/ai-ding-stock:latest
     container_name: stock-analyzer
     restart: unless-stopped
     ports:

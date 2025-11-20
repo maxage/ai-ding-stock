@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      delete: packages  # 添加删除权限，用于清理旧镜像
+      delete: packages
 
     steps:
       - name: 检出代码仓库
@@ -103,12 +103,31 @@ jobs:
           
           echo "✅ 当前最新镜像 digest: sha256:$CURRENT_DIGEST"
           
+          # 检查是否为组织仓库（通过检查仓库类型）
+          # 对于个人仓库，API 路径应该是 users/$OWNER
+          # 对于组织仓库，API 路径应该是 orgs/$OWNER
+          # 我们先尝试 orgs，如果失败再尝试 users
+          API_BASE=""
+          
+          # 尝试获取包信息来确定正确的 API 路径
+          ORG_TEST=$(curl -s -f -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/orgs/$OWNER/packages/container/$PACKAGE_NAME" 2>/dev/null || echo "")
+          
+          if [ -n "$ORG_TEST" ]; then
+            API_BASE="orgs/$OWNER"
+            echo "📦 使用组织仓库 API: $API_BASE"
+          else
+            API_BASE="users/$OWNER"
+            echo "📦 使用个人仓库 API: $API_BASE"
+          fi
+          
           # 获取所有包版本
           echo "📦 获取所有包版本..."
           VERSIONS_JSON=$(curl -s -f \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/orgs/$OWNER/packages/container/$PACKAGE_NAME/versions" 2>/dev/null || echo "[]")
+            "https://api.github.com/$API_BASE/packages/container/$PACKAGE_NAME/versions" 2>/dev/null || echo "[]")
           
           if [ "$VERSIONS_JSON" = "[]" ] || [ -z "$VERSIONS_JSON" ]; then
             echo "ℹ️  无法获取包版本列表或列表为空，跳过清理"
@@ -121,9 +140,10 @@ jobs:
             exit 0
           fi
           
-          # 统计变量
-          KEPT=0
-          DELETED=0
+          # 使用临时文件存储统计信息（避免子shell变量作用域问题）
+          TEMP_DIR=$(mktemp -d)
+          echo "0" > "$TEMP_DIR/kept"
+          echo "0" > "$TEMP_DIR/deleted"
           
           # 遍历所有版本并删除旧版本
           echo "$VERSIONS_JSON" | jq -r '.[] | "\(.id)|\(.metadata.container.digest // empty)"' | while IFS='|' read -r version_id version_digest; do
@@ -140,20 +160,26 @@ jobs:
               DELETE_RESULT=$(curl -s -w "\n%{http_code}" -X DELETE \
                 -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/orgs/$OWNER/packages/container/$PACKAGE_NAME/versions/$version_id" 2>/dev/null)
+                "https://api.github.com/$API_BASE/packages/container/$PACKAGE_NAME/versions/$version_id" 2>/dev/null)
               
               HTTP_CODE=$(echo "$DELETE_RESULT" | tail -1)
               if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
-                DELETED=$((DELETED + 1))
+                DELETED=$(cat "$TEMP_DIR/deleted")
+                echo $((DELETED + 1)) > "$TEMP_DIR/deleted"
                 echo "✅ 已删除版本: $version_id"
               else
                 echo "⚠️  删除版本 $version_id 失败 (HTTP $HTTP_CODE)，可能已被删除"
               fi
             else
-              KEPT=$((KEPT + 1))
+              KEPT=$(cat "$TEMP_DIR/kept")
+              echo $((KEPT + 1)) > "$TEMP_DIR/kept"
               echo "✅ 保留当前版本: $version_id (digest: sha256:$VERSION_DIGEST_ONLY)"
             fi
           done
+          
+          KEPT=$(cat "$TEMP_DIR/kept")
+          DELETED=$(cat "$TEMP_DIR/deleted")
+          rm -rf "$TEMP_DIR"
           
           echo ""
           echo "✅ 清理完成！"

@@ -22,6 +22,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      delete: packages  # 添加删除权限，用于清理旧镜像
 
     steps:
       - name: 检出代码仓库
@@ -36,6 +37,20 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 获取当前镜像信息（用于后续清理）
+        id: old-image
+        run: |
+          # 尝试获取当前 latest 标签的 digest（如果存在）
+          OLD_DIGEST=$(docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null | grep -oP '"digest":\s*"\K[^"]+' | head -1 || echo "")
+          if [ -n "$OLD_DIGEST" ]; then
+            echo "old_digest=$OLD_DIGEST" >> $GITHUB_OUTPUT
+            echo "找到旧镜像: $OLD_DIGEST"
+          else
+            echo "old_digest=" >> $GITHUB_OUTPUT
+            echo "未找到旧镜像，可能是首次构建"
+          fi
+        continue-on-error: true
 
       - name: 提取 Docker 元数据（标签、标签等）
         id: meta
@@ -59,6 +74,93 @@ jobs:
           platforms: linux/amd64
           no-cache: ${{ github.event.inputs.skip_cache == 'true' }}
 
+      - name: 获取新构建的镜像 digest
+        id: new-image
+        run: |
+          NEW_DIGEST="${{ steps.build.outputs.digest }}"
+          echo "new_digest=$NEW_DIGEST" >> $GITHUB_OUTPUT
+          echo "新镜像摘要: $NEW_DIGEST"
+          # 从 digest 中提取 SHA256 部分（去掉 sha256: 前缀）
+          if [[ $NEW_DIGEST == sha256:* ]]; then
+            SHA256_ONLY="${NEW_DIGEST#sha256:}"
+            echo "sha256=$SHA256_ONLY" >> $GITHUB_OUTPUT
+            echo "SHA256: $SHA256_ONLY"
+          fi
+
+      - name: 删除旧的镜像版本
+        if: steps.build.outcome == 'success' && steps.new-image.outputs.sha256 != ''
+        run: |
+          echo "🗑️  开始清理旧镜像版本..."
+          
+          PACKAGE_NAME="${{ env.IMAGE_NAME }}"
+          OWNER="${{ github.repository_owner }}"
+          CURRENT_DIGEST="${{ steps.new-image.outputs.sha256 }}"
+          
+          if [ -z "$CURRENT_DIGEST" ]; then
+            echo "⚠️  无法获取新镜像的 digest，跳过清理"
+            exit 0
+          fi
+          
+          echo "✅ 当前最新镜像 digest: sha256:$CURRENT_DIGEST"
+          
+          # 获取所有包版本
+          echo "📦 获取所有包版本..."
+          VERSIONS_JSON=$(curl -s -f \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/orgs/$OWNER/packages/container/$PACKAGE_NAME/versions" 2>/dev/null || echo "[]")
+          
+          if [ "$VERSIONS_JSON" = "[]" ] || [ -z "$VERSIONS_JSON" ]; then
+            echo "ℹ️  无法获取包版本列表或列表为空，跳过清理"
+            exit 0
+          fi
+          
+          # 检查是否有 jq
+          if ! command -v jq &> /dev/null; then
+            echo "⚠️  jq 未安装，无法解析 JSON，跳过清理"
+            exit 0
+          fi
+          
+          # 统计变量
+          KEPT=0
+          DELETED=0
+          
+          # 遍历所有版本并删除旧版本
+          echo "$VERSIONS_JSON" | jq -r '.[] | "\(.id)|\(.metadata.container.digest // empty)"' | while IFS='|' read -r version_id version_digest; do
+            if [ -z "$version_digest" ]; then
+              continue
+            fi
+            
+            # 去掉 sha256: 前缀
+            VERSION_DIGEST_ONLY="${version_digest#sha256:}"
+            
+            # 如果 digest 不是当前最新版本，则删除
+            if [ "$VERSION_DIGEST_ONLY" != "$CURRENT_DIGEST" ]; then
+              echo "🗑️  删除旧版本: $version_id (digest: sha256:$VERSION_DIGEST_ONLY)"
+              DELETE_RESULT=$(curl -s -w "\n%{http_code}" -X DELETE \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/orgs/$OWNER/packages/container/$PACKAGE_NAME/versions/$version_id" 2>/dev/null)
+              
+              HTTP_CODE=$(echo "$DELETE_RESULT" | tail -1)
+              if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+                DELETED=$((DELETED + 1))
+                echo "✅ 已删除版本: $version_id"
+              else
+                echo "⚠️  删除版本 $version_id 失败 (HTTP $HTTP_CODE)，可能已被删除"
+              fi
+            else
+              KEPT=$((KEPT + 1))
+              echo "✅ 保留当前版本: $version_id (digest: sha256:$VERSION_DIGEST_ONLY)"
+            fi
+          done
+          
+          echo ""
+          echo "✅ 清理完成！"
+          echo "   - 保留版本: $KEPT"
+          echo "   - 删除版本: $DELETED"
+        continue-on-error: true
+
       - name: 构建摘要
         run: |
           echo "## Docker 镜像构建摘要 🐳" >> $GITHUB_STEP_SUMMARY
@@ -72,4 +174,10 @@ jobs:
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 清理状态" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.old-image.outputs.old_digest }}" ]; then
+            echo "✅ 已清理旧镜像版本，只保留最新的一个" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️  首次构建，无需清理旧镜像" >> $GITHUB_STEP_SUMMARY
+          fi

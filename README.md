@@ -24,6 +24,7 @@
 
 ## 📋 目录
 
+- [系统预览](#系统预览)
 - [功能概述](#功能概述)
 - [快速开始](#快速开始)
   - [模式一：开发者模式（本地运行）](#模式一开发者模式本地运行)
@@ -35,6 +36,16 @@
 - [常见问题](#常见问题)
 - [项目结构](#项目结构)
 - [文档索引](#文档索引)
+
+---
+
+## 📸 系统预览
+
+### 系统首页
+![系统首页](image/首页.png)
+
+### 系统测试
+![系统测试](image/系统测试.png)
 
 ---
 
@@ -244,6 +255,8 @@ cd ai-ding-stock
 
 ### 2️⃣ 配置系统
 
+#### 方式A：Git Clone（开发者模式）
+
 ```bash
 # 复制配置示例
 cp config_stock.json.example config_stock.json
@@ -252,15 +265,48 @@ cp config_stock.json.example config_stock.json
 vim config_stock.json
 ```
 
-**配置说明**：也可以在部署完成后通过Web界面进行配置。
+#### 方式B：仅下载部署文件（Docker Compose 模式）
+
+**一键下载部署文件（推荐）**:
+
+```bash
+# Linux/macOS - 一键下载所有必需文件
+bash <(curl -sL https://raw.githubusercontent.com/maxage/ai-ding-stock/main/download-deploy.sh)
+```
+
+**或者手动下载**:
+
+```bash
+# 创建目录
+mkdir -p Ai-Ding-Stock/web && cd Ai-Ding-Stock
+
+# 仓库基础 URL
+BASE_URL="https://raw.githubusercontent.com/maxage/ai-ding-stock/main"
+
+# 下载必需文件
+wget ${BASE_URL}/docker-compose.yml -O docker-compose.yml
+wget ${BASE_URL}/nginx.conf -O nginx.conf
+wget ${BASE_URL}/config_stock.json.example -O config_stock.json
+wget ${BASE_URL}/web/config.html -O web/config.html
+```
+
+然后编辑 `config_stock.json` 填写您的配置。
+
+**配置说明**：
+- 必需配置：`tdx_api_url`、`ai_config`（AI密钥）、`stocks`（股票代码列表）
+- 可选配置：`notification`（通知配置）
+- 也可以在部署完成后通过Web界面进行配置
 
 ### 3️⃣ 启动服务
 
 #### 方式A：使用docker-compose（推荐）
 
 ```bash
-# 构建并启动（后台运行）
-docker-compose up -d --build
+# 拉取远程镜像（使用远程镜像时）
+docker-compose pull
+
+# 启动服务（后台运行）
+docker-compose up -d
 
 # 查看日志
 docker-compose logs -f stock-analyzer
